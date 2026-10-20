@@ -218,6 +218,7 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         ResourceRegistry resources = new(fileSystem);
         GameLoop loop = new(new ManualTimeSource());
         PlayerTaskTypes.RegisterAll(loop.Types);
+        AiTaskTypes.RegisterAll(loop.Types);
         loop.Types.Register<ConditionalContainerTask>(ConditionalContainerTask.TypeName);
         MissionRegistry registry = new();
         registry.Register(loop.Natives);

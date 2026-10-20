@@ -164,7 +164,7 @@ public sealed class Igi2SoldierLevel
 
         foreach (HumanSoldierTask igi1 in level.Descendants().OfType<HumanSoldierTask>())
         {
-            DeclaredTask? mind = MindOf(igi1);
+            HumanAiTask? mind = MindOf(igi1);
             if (table.For(AiTypeOf(mind)) is not { } mapping)
             {
                 continue;
@@ -185,7 +185,7 @@ public sealed class Igi2SoldierLevel
 
             ai.AiTypeName = mapping.AiType;
             ai.AnimTypeName = mapping.AnimType;
-            ai.GraphId = mind is not null && mind.TryGetValue("Graph ID", out object? graph) && graph is int id ? id : -1;
+            ai.GraphId = mind?.GraphId ?? -1;
             igi1.Driver = GameTitle.Igi2;
             handedOver[soldier] = igi1;
             squads[igi1] = squad;
@@ -324,11 +324,10 @@ public sealed class Igi2SoldierLevel
         Finish();
     }
 
-    private static DeclaredTask? MindOf(GameTask soldier) =>
-        soldier.Children.OfType<DeclaredTask>().FirstOrDefault(static c => c.Type.Name == "HumanAI");
+    // The soldier's Project I.G.I. mind, whose AI type picks its I.G.I. 2 counterpart and whose graph it walks.
+    private static HumanAiTask? MindOf(GameTask soldier) => soldier.Children.OfType<HumanAiTask>().FirstOrDefault();
 
-    private static string AiTypeOf(DeclaredTask? mind) =>
-        mind is not null && mind.TryGetValue("AI Type", out object? type) && type is string name ? name : string.Empty;
+    private static string AiTypeOf(HumanAiTask? mind) => mind?.AiTypeName ?? string.Empty;
 
     private void EndTick()
     {
