@@ -505,7 +505,9 @@ public sealed class Igi2SoldierLevel
     {
         private int _current = -1;
 
-        public bool IsDead => _current >= 0 && lives[_current].Body.IsDead;
+        // Replaced as Project I.G.I.'s own generator replaces its guard: once the dead body's death has played out (0x44F410 takes
+        // a generator's guard out of the world then).
+        public bool IsDead => _current >= 0 && lives[_current].Body is { IsDead: true, IsDeathAnimationDone: true };
 
         public void Spawn()
         {

@@ -135,7 +135,16 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         ((IWeaponHitTarget)first).WeaponHit(new WeaponHit(first.Position, default, 1000f, new Vector3f(1f, 0f, 0f), null, new object()));
         soldiers.Tick();
         Assert.True(template.IsDead);
-        Assert.True(lives.IsDead);
+
+        // Not replaced until its death has played out.
+        Assert.False(lives.IsDead);
+        int ticks = 0;
+        while (!lives.IsDead && ticks++ < 600)
+        {
+            soldiers.Tick();
+        }
+
+        Assert.True(lives.IsDead, "the death never played out");
         Assert.Equal(GuardSpawnDecision.Respawn, generator.Advance(isOn: true, childIsDead: lives.IsDead));
         lives.Spawn();
         Igi2HumanSoldier second = soldiers.HandedOver[template];
