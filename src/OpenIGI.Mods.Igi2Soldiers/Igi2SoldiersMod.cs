@@ -6,7 +6,9 @@ using OpenIGI.Game.Ai;
 using OpenIGI.Game.Hosting;
 using OpenIGI.Game.Level;
 using OpenIGI.Game.Player;
+using OpenIGI.Presentation;
 using OpenIGI.Modding;
+using OpenIGI.Modding.Presentation;
 using OpenIGI.Mods.Igi2Soldiers;
 using OpenIGI.Mods.Igi2Soldiers.Collision;
 using OpenIGI.Mods.Igi2Soldiers.Mapping;
@@ -28,7 +30,7 @@ namespace OpenIGI.Mods.Igi2Soldiers;
 /// I.G.I. 2 installed nothing is claimed, and the missions play as they ship.
 /// </para>
 /// </remarks>
-public sealed class Igi2SoldiersMod : IOpenIgiMod
+public sealed class Igi2SoldiersMod : IOpenIgiMod, IOpenIgiPresentationMod
 {
     /// <summary>The system that claims the soldiers.</summary>
     public const string ClaimSystem = "Igi2Soldiers.Claim";
@@ -54,6 +56,21 @@ public sealed class Igi2SoldiersMod : IOpenIgiMod
             .InsertAfter(MissionSystemNames.Player, new LevelSystem<MissionLevelBuild>(SpawnSystem, _session.Spawn)));
     }
 
+    /// <inheritdoc/>
+    /// <remarks>The soldiers are drawn by one presenter for the level, which skins every body in one batch.</remarks>
+    public void ConfigurePresentation(GameTitle title, PresenterRegistry presenters)
+    {
+        ArgumentNullException.ThrowIfNull(presenters);
+        if (title != GameTitle.Igi1)
+        {
+            return;
+        }
+
+        presenters.ForLevel(request => _session is { Kit: { } kit, Level: { } level }
+            ? new Presentation.Igi2SoldierPresenter(request.Device, kit, level, request.Logger)
+            : null);
+    }
+
     // What the mod keeps across a session's missions: the table, the soldiers' kit, read once, and the mission's soldiers.
     private sealed class Session : IContentModule
     {
@@ -63,6 +80,10 @@ public sealed class Igi2SoldiersMod : IOpenIgiMod
         private Igi2SoldierLevel? _level;
 
         public SoldierTable Table { get; set; } = SoldierTable.Shipped;
+
+        public Igi2SoldierKit? Kit => _kit;
+
+        public Igi2SoldierLevel? Level => _level;
 
         public string Name => "Igi2Soldiers.Session";
 

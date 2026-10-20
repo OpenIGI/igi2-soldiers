@@ -211,7 +211,7 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         public bool IsActive => true;
     }
 
-    private static (LevelTask, WorldScene, TerrainData) Load(string root)
+    internal static (LevelTask, WorldScene, TerrainData) Load(string root)
     {
         VirtualFileSystem fileSystem = new();
         fileSystem.RegisterDevice(new LocalFileDevice(root));
