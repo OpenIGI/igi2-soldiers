@@ -38,5 +38,9 @@ internal sealed class Igi2SoldierPresenter : ITaskPresenter
         _renderer.DrawWorld(_level.Models(), camera, projection);
 
     /// <inheritdoc/>
+    /// <remarks>The soldiers stand in the level's light like its own: they shadow the ground under them and the lamps.</remarks>
+    public bool CastsShadow => true;
+
+    /// <inheritdoc/>
     public void Dispose() => _renderer.Dispose();
 }
