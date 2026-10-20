@@ -72,10 +72,23 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         // In the mission's level: its shots meet the soldiers, its blasts and AI events reach their tasks, and a Project I.G.I.
         // task dies with the soldier that stands for it.
         MissionState mission = new();
-        soldiers.JoinTo(mission);
+        soldiers.JoinTo(mission, level);
         Assert.Equal(mapped, mission.Bodies.Sources.Single().Bodies().Count());
         Assert.Equal(mapped, mission.Joined.ExplosionTargets.Count);
         Assert.Equal(mapped, mission.Joined.Humans.Count);
+
+        // And the other way: an event the soldiers' world raises reaches the level's own humans after them, in that game's
+        // numbering, the soldiers' event whole as its context. I.G.I. 2's explosion is its twentieth, Project I.G.I.'s its
+        // twenty-first; a near miss is not given.
+        Assert.Contains(player, soldiers.Ai.OtherHumans!);
+        RecordingEvents heard = new();
+        player.Events = heard;
+        Igi2AiEvent blast = new(20, -1, 2, 40960f, player.Position, default, null);
+        soldiers.Ai.SendEvent(blast);
+        soldiers.Ai.SendEvent(new Igi2AiEvent(Igi2AiEvent.GunShotMiss, -1, 0, 0f, player.Position, default, null));
+        HumanAiEvent shared = Assert.Single(heard.Events);
+        Assert.Equal((int)AiEvent.Explosion, shared.Type);
+        Assert.Equal(blast, shared.Context);
 
         (HumanTask task, Igi2HumanSoldier killed) = soldiers.HandedOver.First();
         ((IWeaponHitTarget)killed).WeaponHit(new WeaponHit(killed.Position, default, 1000f, new Vector3f(1f, 0f, 0f), null, new object()));
@@ -357,6 +370,10 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         public void ExplosionHit(HumanTask human, in ExplosionHit hit)
         {
         }
+
+        public List<HumanAiEvent> Events { get; } = [];
+
+        public void SendEvent(HumanTask human, in HumanAiEvent aiEvent) => Events.Add(aiEvent);
     }
 
     private sealed class StandingBody(Vector3d feet) : IHumanBodyState

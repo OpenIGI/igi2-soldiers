@@ -146,7 +146,7 @@ public sealed class Igi2SoldiersMod : IOpenIgiMod, IOpenIgiPresentationMod
                 new IgiRandom(),
                 _logger,
                 carriers);
-            _level.JoinTo(build.Mission);
+            _level.JoinTo(build.Mission, build.LevelRoot);
             _level.BindTo(build.Walker);
         }
 

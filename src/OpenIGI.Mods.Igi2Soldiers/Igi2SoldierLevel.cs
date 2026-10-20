@@ -333,9 +333,14 @@ public sealed class Igi2SoldierLevel
     /// lists after its own.
     /// </summary>
     /// <param name="mission">The mission.</param>
-    public void JoinTo(MissionState mission)
+    /// <param name="levelRoot">
+    /// The mission's level, whose humans hear the soldiers' AI events after the soldiers' own, as the soldiers hear theirs.
+    /// </param>
+    public void JoinTo(MissionState mission, GameTask levelRoot)
     {
         ArgumentNullException.ThrowIfNull(mission);
+        ArgumentNullException.ThrowIfNull(levelRoot);
+        Ai.OtherHumans = [.. levelRoot.DescendantsAndSelf().OfType<IHumanAiEventTarget>()];
         mission.Bodies.Add(new Igi2ShootableSoldiers(Root.Descendants().OfType<Igi2HumanSoldierTask>()));
         foreach (Igi2HumanSoldierTask soldier in Root.Descendants().OfType<Igi2HumanSoldierTask>())
         {
