@@ -12,6 +12,12 @@ namespace OpenIGI.Mods.Igi2Soldiers.Collision;
 /// <c>WeaponHit</c> and reads I.G.I. 2's round in its own game's terms. The face a round enters is the human collision material,
 /// which both games' material tables hold in the same row.
 /// </para>
+/// <para>
+/// The body is closed, as an I.G.I. 2 human's mesh is: a line from outside meets the face it enters by, and a line from inside
+/// the face it leaves by, a leave face of the same material. An I.G.I. 2 round that goes into a body traces on from just past
+/// the point it struck, from inside it, and goes out through that leave face, paying its toll; a body that met it there with
+/// another entry would take the round again at every step.
+/// </para>
 /// <para>A dead human, or one whose body is not in the level, stops nothing.</para>
 /// </remarks>
 public sealed class Igi1HumanCollider : IIgi2LineCollider
@@ -50,9 +56,28 @@ public sealed class Igi1HumanCollider : IIgi2LineCollider
 
         for (int i = 0; i < trace.Count; i++)
         {
-            if (!HumanHitTest.TryCast(trace.Starts[i], trace.Ends[i], feet, Facing, pose: null, out HumanHit met))
+            Vector3d start = trace.Starts[i];
+            Vector3d end = trace.Ends[i];
+            Vector3d line = end - start;
+            double length = line.Length;
+            bool leaving = Inside(start, feet);
+            HumanHit met;
+            if (!leaving)
             {
+                if (!HumanHitTest.TryCast(start, end, feet, Facing, pose: null, out met))
+                {
+                    continue;
+                }
+            }
+            else if (Inside(end, feet) || !HumanHitTest.TryCast(end, start, feet, Facing, pose: null, out met))
+            {
+                // A line that never leaves the body crosses none of its faces.
                 continue;
+            }
+            else
+            {
+                // Where the line comes out is where the same line run backwards goes in.
+                met = met with { Distance = length - met.Distance };
             }
 
             Igi2Intersection hit = trace.Intersections[i];
@@ -61,18 +86,18 @@ public sealed class Igi1HumanCollider : IIgi2LineCollider
                 continue;
             }
 
-            Vector3d line = trace.Ends[i] - trace.Starts[i];
-            double length = line.Length;
             Vector3f back = length > 0.0 ? new Vector3f((float)(-line.X / length), (float)(-line.Y / length), (float)(-line.Z / length)) : default;
             hit.IsHit = true;
             hit.HitObject = this;
             hit.Position = met.Position;
             hit.LocalPosition = new Vector3f((float)(met.Position.X - feet.X), (float)(met.Position.Y - feet.Y), (float)(met.Position.Z - feet.Z));
-            hit.Normal = back;
-            hit.LocalNormal = back;
+            // A face looks out of the body: back along the line where it goes in, along it where it comes out.
+            Vector3f normal = leaving ? new Vector3f(-back.X, -back.Y, -back.Z) : back;
+            hit.Normal = normal;
+            hit.LocalNormal = normal;
             hit.Distance = met.Distance;
-            hit.EnterMaterial = HumanMaterial;
-            hit.LeaveMaterial = null;
+            hit.EnterMaterial = leaving ? null : HumanMaterial;
+            hit.LeaveMaterial = leaving ? HumanMaterial : null;
             hit.IsDoubleFace = false;
             hit.Sector = met.Bone;
             hit.Light = 1f;
@@ -89,6 +114,16 @@ public sealed class Igi1HumanCollider : IIgi2LineCollider
             sight.Transparency = 0f;
             sight.Material = HumanMaterial;
         }
+    }
+
+    // Whether a point is within the stand-in's body, the cylinder HumanHitTest casts against.
+    private static bool Inside(Vector3d point, Vector3d feet)
+    {
+        double x = point.X - feet.X;
+        double y = point.Y - feet.Y;
+        return (x * x) + (y * y) < HumanHitTest.BodyRadiusInUnits * HumanHitTest.BodyRadiusInUnits
+            && point.Z > feet.Z
+            && point.Z < feet.Z + HumanHitTest.BodyHeightInUnits;
     }
 
     // The way the stand-in faces: it is round, so only its zones turn with it.
