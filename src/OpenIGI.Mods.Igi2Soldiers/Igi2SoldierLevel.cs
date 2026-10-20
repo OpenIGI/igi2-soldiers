@@ -17,6 +17,7 @@ using OpenIGI.Game.Igi2.Soldiers;
 using OpenIGI.Game.Igi2.Weapons;
 using OpenIGI.Game.Igi2.World;
 using OpenIGI.Game.Player;
+using OpenIGI.Game.World;
 using OpenIGI.Mods.Igi2Soldiers.Mapping;
 using SoldierBodies = OpenIGI.Game.Igi2.Soldiers.Igi2Soldiers;
 
@@ -232,10 +233,37 @@ public sealed class Igi2SoldierLevel
         return built;
     }
 
+    /// <summary>
+    /// Puts the soldiers in the Project I.G.I. mission's level: among the bodies its shots meet, and on its explosion and human
+    /// lists after its own.
+    /// </summary>
+    /// <param name="mission">The mission.</param>
+    public void JoinTo(MissionState mission)
+    {
+        ArgumentNullException.ThrowIfNull(mission);
+        mission.Bodies.Add(new Igi2ShootableSoldiers(Root.Descendants().OfType<Igi2HumanSoldierTask>()));
+        foreach (Igi2HumanSoldierTask soldier in Root.Descendants().OfType<Igi2HumanSoldierTask>())
+        {
+            mission.Joined.JoinExplosions(soldier);
+            mission.Joined.JoinHumans(soldier);
+        }
+    }
+
     /// <summary>Runs the level a tick: every squad and its soldier, then each soldier's body and mind.</summary>
+    /// <remarks>
+    /// A Project I.G.I. task handed over dies with its I.G.I. 2 soldier, the latch the mission's scripts read
+    /// (<c>HumanSoldier_N.isDead</c>).
+    /// </remarks>
     public void Tick()
     {
         _run.Tick();
         _tick++;
+        foreach ((HumanTask igi1, Igi2HumanSoldier body) in HandedOver)
+        {
+            if (body.IsDead && !igi1.IsDead)
+            {
+                igi1.IsDead = true;
+            }
+        }
     }
 }

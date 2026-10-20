@@ -67,6 +67,20 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
             Assert.True(double.IsFinite(body.Position.Z));
         });
         Assert.All(soldiers.HandedOver.Values, static body => Assert.True(((Igi2HumanAi)body.Mind!).HasStarted));
+
+        // In the mission's level: its shots meet the soldiers, its blasts and AI events reach their tasks, and a Project I.G.I.
+        // task dies with the soldier that stands for it.
+        MissionState mission = new();
+        soldiers.JoinTo(mission);
+        Assert.Equal(mapped, mission.Bodies.Sources.Single().Bodies().Count());
+        Assert.Equal(mapped, mission.Joined.ExplosionTargets.Count);
+        Assert.Equal(mapped, mission.Joined.Humans.Count);
+
+        (HumanTask task, Igi2HumanSoldier killed) = soldiers.HandedOver.First();
+        ((IWeaponHitTarget)killed).WeaponHit(new WeaponHit(killed.Position, default, 1000f, new Vector3f(1f, 0f, 0f), null, new object()));
+        soldiers.Tick();
+        Assert.True(killed.IsDead);
+        Assert.True(task.IsDead);
     }
 
     [RequiresTitleDataFact("igi2")]
