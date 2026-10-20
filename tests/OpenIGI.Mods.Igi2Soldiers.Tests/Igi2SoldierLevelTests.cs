@@ -15,6 +15,7 @@ using OpenIGI.Game.Igi2.Ai.Runtime;
 using OpenIGI.Game.Igi2.Collision;
 using OpenIGI.Game.Igi2.Soldiers;
 using OpenIGI.Game.Player;
+using OpenIGI.Game.Weapons;
 using OpenIGI.Game.World;
 using OpenIGI.Mods.Igi2Soldiers.Collision;
 using OpenIGI.Mods.Igi2Soldiers.Mapping;
@@ -93,6 +94,8 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         Vector3d ahead = new(guard.Position.X + (facing.M12 * 40960.0), guard.Position.Y + (facing.M22 * 40960.0), guard.Position.Z);
         double ground = terrain.TryGetGround(ahead.X, ahead.Y, ahead.Z + 8192.0, aboveUnits: 0.0, out TerrainGround found) ? found.Height : ahead.Z;
         player.Body = new StandingBody(new Vector3d(ahead.X, ahead.Y, ground));
+        RecordingEvents struck = new();
+        player.Events = struck;
 
         Igi2HumanAi mind = (Igi2HumanAi)guard.Mind!;
         int seenOn = -1;
@@ -122,6 +125,30 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
 
         output.WriteLine($"the guard fired after {firedOn} more ticks, holding {guard.Weapon.Inventory!.Current!.WeaponType.WeaponId}");
         Assert.True(firedOn >= 0, "the guard never fired");
+
+        // Its rounds strike the player's task, which takes the engine's WeaponHit with I.G.I. 2's round inside.
+        for (int tick = 0; tick < 300 && struck.Hits.Count == 0; tick++)
+        {
+            soldiers.Tick();
+        }
+
+        output.WriteLine($"{struck.Hits.Count} round(s) struck the player, the first for {(struck.Hits.Count > 0 ? struck.Hits[0].Damage : 0f)}");
+        WeaponHit first = Assert.Single(struck.Hits.Take(1));
+        Assert.IsType<Game.Igi2.Weapons.Igi2WeaponHit>(first.Context);
+        Assert.True(first.Damage > 0f);
+    }
+
+    private sealed class RecordingEvents : IHumanEvents
+    {
+        public List<WeaponHit> Hits { get; } = [];
+
+        public bool EvaluateWeaponCollision(HumanTask human, in WeaponCollisionQuery query) => true;
+
+        public void WeaponHit(HumanTask human, in WeaponHit hit) => Hits.Add(hit);
+
+        public void ExplosionHit(HumanTask human, in ExplosionHit hit)
+        {
+        }
     }
 
     private sealed class StandingBody(Vector3d feet) : IHumanBodyState

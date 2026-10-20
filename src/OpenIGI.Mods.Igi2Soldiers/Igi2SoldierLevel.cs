@@ -165,6 +165,9 @@ public sealed class Igi2SoldierLevel
             natives: guest.Natives,
             functions: functions);
 
+        // The player is a body I.G.I. 2's rounds strike and its soldiers' sight is stopped by.
+        world.AddCollider(new Collision.Igi1HumanCollider(player));
+
         Igi2SoldierLevel? built = null;
         Igi2DetectionWorld detection = new(world, services.Require<Igi2GameMaterials>())
         {
