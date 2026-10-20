@@ -51,6 +51,8 @@ public sealed class Igi2SoldierLevel
     private readonly Dictionary<HumanTask, Igi2AiSquadTask> _squads;
     private readonly TaskTree _tasks;
     private Igi1Carriers? _carriers;
+    private HumanPlayerTask? _player;
+    private Collision.Igi2RoundOdds? _odds;
     private readonly Dictionary<HumanTask, bool> _inWorld = [];
     private TitleWorldModel[] _drawn = [];
     private int _drawnTick = -1;
@@ -151,7 +153,11 @@ public sealed class Igi2SoldierLevel
     /// <param name="graphs">The mission's graphs, as Project I.G.I. placed them, by their task ids.</param>
     /// <param name="world">The mission's collision, built for I.G.I. 2.</param>
     /// <param name="player">The player, whom the soldiers look out for.</param>
-    /// <param name="difficulty">The session's difficulty.</param>
+    /// <param name="difficulty">
+    /// The session's difficulty, which the soldiers fight at as I.G.I. 2's own do at its: each reads its type's tweaks scaled by
+    /// that difficulty's row of the AI config (<c>DIFF_SCALE_</c>), so an easy soldier is slower to identify an enemy and worse
+    /// at hitting one, and a hard one quicker and better.
+    /// </param>
     /// <param name="random">The soldiers' run stream.</param>
     /// <param name="logger">Where diagnostics go.</param>
     /// <param name="carriers">
@@ -248,8 +254,10 @@ public sealed class Igi2SoldierLevel
             natives: guest.Natives,
             functions: functions);
 
-        // The player is a body I.G.I. 2's rounds strike and its soldiers' sight is stopped by.
+        // The player is a body I.G.I. 2's rounds strike and its soldiers' sight is stopped by, at I.G.I. 2's odds of a round striking.
         world.AddCollider(new Collision.Igi1HumanCollider(player));
+        Collision.Igi2RoundOdds odds = new(player.Events, random);
+        player.Events = odds;
 
         Igi2SoldierLevel? built = null;
         Igi2DetectionWorld detection = new(world, services.Require<Igi2GameMaterials>())
@@ -314,9 +322,9 @@ public sealed class Igi2SoldierLevel
         }
 
         Igi2LevelRun run = new(root, guest.Natives, functions) { Dynamic = new Igi2DynamicTasks() };
-        built = new Igi2SoldierLevel(guest.Tasks, root, run, soldiers, mindWorld, bodies, squads) { _carriers = carriers };
+        built = new Igi2SoldierLevel(guest.Tasks, root, run, soldiers, mindWorld, bodies, squads) { _carriers = carriers, _player = player, _odds = odds };
         built.FollowWorld(initial: true);
-        log.Information("Mods", $"{bodies.Count} of the mission's soldiers are I.G.I. 2's.");
+        log.Information("Mods", $"{bodies.Count} of the mission's soldiers are I.G.I. 2's, at {difficulty}.");
         return built;
     }
 
@@ -353,9 +361,18 @@ public sealed class Igi2SoldierLevel
         walk.AddTickEnd(EndTick);
     }
 
-    /// <summary>Takes the level down as its mission is left: the guest's tasks are deleted, and the ids they kept are free.</summary>
+    /// <summary>
+    /// Takes the level down as its mission is left: the guest's tasks are deleted, the ids they kept are free, and the player's
+    /// own hit events are given back.
+    /// </summary>
     public void Leave()
     {
+        // The player's own events again, for a mission played on without the soldiers.
+        if (_player is not null && _odds is not null && ReferenceEquals(_player.Events, _odds))
+        {
+            _player.Events = _odds.Inner;
+        }
+
         if (Root.Parent is not null)
         {
             _tasks.Delete(Root);

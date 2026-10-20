@@ -154,6 +154,91 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
     }
 
     [RequiresTitleDataFact("igi2")]
+    public void The_soldiers_fight_at_the_session_s_difficulty_as_I_G_I_2_s_own_do()
+    {
+        string igi1 = GameData.RequireRoot();
+        string missionDirectory = Path.Combine(igi1, "missions", "location0", "level1");
+        (LevelTask level, WorldScene scene, TerrainData terrain) = Load(igi1);
+        Dictionary<int, GraphFile> graphs = NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance);
+        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
+        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object());
+
+        // The player stands where the mission starts him, in the open, the guards about the compound in sight of him.
+        (float Accuracy, int FirstShot) Fight(AiDifficulty difficulty)
+        {
+            HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
+            player.Body = new StandingBody(player.Position);
+            Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+                kit, SoldierTable.Shipped, level, graphs, world, player, difficulty, new IgiRandom(), NullLogger.Instance);
+            float accuracy = 0f;
+            for (int tick = 0; tick < 450; tick++)
+            {
+                soldiers.Tick();
+                foreach (Igi2HumanSoldier guard in soldiers.HandedOver.Values)
+                {
+                    Igi2HumanAi mind = (Igi2HumanAi)guard.Mind!;
+                    Assert.Equal((int)difficulty, mind.World.Difficulty);
+                    accuracy = mind.HasStarted ? mind.Tweak(Igi2AiTweakIndex.MinRangeAccuracy) : accuracy;
+                    if (guard.Weapon.Inventory?.TotalBulletsFired > 0)
+                    {
+                        soldiers.Leave();
+                        return (accuracy, tick);
+                    }
+                }
+            }
+
+            soldiers.Leave();
+            return (accuracy, int.MaxValue);
+        }
+
+        (float Accuracy, int FirstShot) easy = Fight(AiDifficulty.Easy);
+        (float Accuracy, int FirstShot) normal = Fight(AiDifficulty.Normal);
+        (float Accuracy, int FirstShot) hard = Fight(AiDifficulty.Hard);
+        output.WriteLine($"first shot: easy {easy.FirstShot}, normal {normal.FirstShot}, hard {hard.FirstShot}; close accuracy {easy.Accuracy}, {normal.Accuracy}, {hard.Accuracy}");
+        Assert.True(easy.FirstShot > normal.FirstShot && normal.FirstShot > hard.FirstShot, "harder soldiers open fire sooner");
+        Assert.True(easy.Accuracy < normal.Accuracy && normal.Accuracy < hard.Accuracy, "harder soldiers shoot straighter");
+    }
+
+    [RequiresTitleDataFact("igi2")]
+    public void A_round_strikes_the_player_at_I_G_I_2_s_odds_and_once()
+    {
+        string igi1 = GameData.RequireRoot();
+        string missionDirectory = Path.Combine(igi1, "missions", "location0", "level1");
+        (LevelTask level, WorldScene scene, TerrainData terrain) = Load(igi1);
+        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
+        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+
+        // The player stands where the mission starts him, and guard 2003, seventy metres off across the compound, opens fire.
+        HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
+        player.Body = new StandingBody(player.Position);
+        RecordingEvents own = new();
+        player.Events = own;
+        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+            kit,
+            SoldierTable.Shipped,
+            level,
+            NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance),
+            Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object()),
+            player,
+            AiDifficulty.Normal,
+            new IgiRandom(),
+            NullLogger.Instance);
+        for (int tick = 0; tick < 450; tick++)
+        {
+            soldiers.Tick();
+        }
+
+        int fired = soldiers.HandedOver.Values.Sum(static guard => guard.Weapon.Inventory?.TotalBulletsFired ?? 0);
+        output.WriteLine($"{fired} rounds fired, {own.Hits.Count} struck");
+        Assert.InRange(own.Hits.Count, 1, fired / 2);
+
+        // Leaving gives the player its own events back.
+        soldiers.Leave();
+        Assert.Same(own, player.Events);
+    }
+
+    [RequiresTitleDataFact("igi2")]
     public void Claimed_soldiers_run_where_the_Project_IGI_walk_reaches_them()
     {
         string igi1 = GameData.RequireRoot();
