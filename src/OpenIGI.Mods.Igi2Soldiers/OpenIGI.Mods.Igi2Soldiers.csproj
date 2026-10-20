@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A mod: Project I.G.I.'s missions spawn I.G.I. 2's soldiers, which run I.G.I. 2's AI. -->
+  <PropertyGroup>
+    <AssemblyName>OpenIGI.Mods.Igi2Soldiers</AssemblyName>
+    <RootNamespace>OpenIGI.Mods.Igi2Soldiers</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenIGI.Mods.Igi2Soldiers.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Engine\OpenIGI.Modding\OpenIGI.Modding.csproj" />
+    <ProjectReference Include="..\..\src\Game\OpenIGI.Game.Igi1\OpenIGI.Game.Igi1.csproj" />
+    <ProjectReference Include="..\..\src\Game\OpenIGI.Game.Igi2\OpenIGI.Game.Igi2.csproj" />
+  </ItemGroup>
+
+</Project>
