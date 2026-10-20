@@ -68,6 +68,73 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         Assert.All(soldiers.HandedOver.Values, static body => Assert.True(((Igi2HumanAi)body.Mind!).HasStarted));
     }
 
+    [RequiresTitleDataFact("igi2")]
+    public void A_soldier_detects_the_Project_IGI_player_standing_before_it()
+    {
+        string igi1 = GameData.RequireRoot();
+        string missionDirectory = Path.Combine(igi1, "missions", "location0", "level1");
+        (LevelTask level, WorldScene scene, TerrainData terrain) = Load(igi1);
+        Dictionary<int, GraphFile> graphs = NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance);
+        HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
+
+        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
+        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object());
+        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+            kit, SoldierTable.Shipped, level, graphs, world, player, AiDifficulty.Normal, new IgiRandom(), NullLogger.Instance);
+        for (int tick = 0; tick < 30; tick++)
+        {
+            soldiers.Tick();
+        }
+
+        // The player steps out ten metres in front of a guard, on the ground there.
+        Igi2HumanSoldier guard = soldiers.HandedOver.Values.First();
+        Matrix3f facing = guard.Orientation;
+        Vector3d ahead = new(guard.Position.X + (facing.M12 * 40960.0), guard.Position.Y + (facing.M22 * 40960.0), guard.Position.Z);
+        double ground = terrain.TryGetGround(ahead.X, ahead.Y, ahead.Z + 8192.0, aboveUnits: 0.0, out TerrainGround found) ? found.Height : ahead.Z;
+        player.Body = new StandingBody(new Vector3d(ahead.X, ahead.Y, ground));
+
+        Igi2HumanAi mind = (Igi2HumanAi)guard.Mind!;
+        int seenOn = -1;
+        for (int tick = 0; tick < 300 && seenOn < 0; tick++)
+        {
+            soldiers.Tick();
+            if (mind.Detection.Enemies.Any(item => ReferenceEquals(item.Target, player)))
+            {
+                seenOn = tick;
+            }
+        }
+
+        output.WriteLine($"the guard listed the player after {seenOn} ticks");
+        Assert.True(seenOn >= 0, "the guard never listed the player");
+
+        // And fights: within twenty seconds it has its weapon up and rounds going the player's way.
+        Assert.NotNull(guard.Weapon.Inventory?.Current);
+        int firedOn = -1;
+        for (int tick = 0; tick < 600 && firedOn < 0; tick++)
+        {
+            soldiers.Tick();
+            if (guard.Weapon.Inventory!.TotalBulletsFired > 0)
+            {
+                firedOn = tick;
+            }
+        }
+
+        output.WriteLine($"the guard fired after {firedOn} more ticks, holding {guard.Weapon.Inventory!.Current!.WeaponType.WeaponId}");
+        Assert.True(firedOn >= 0, "the guard never fired");
+    }
+
+    private sealed class StandingBody(Vector3d feet) : IHumanBodyState
+    {
+        public Vector3d Feet => feet;
+
+        public Vector3d Eyes => new(feet.X, feet.Y, feet.Z + AiSoldier.DetectionMarkAboveFeet(crouching: false));
+
+        public bool IsKeepingLow => false;
+
+        public bool IsActive => true;
+    }
+
     private static (LevelTask, WorldScene, TerrainData) Load(string root)
     {
         VirtualFileSystem fileSystem = new();

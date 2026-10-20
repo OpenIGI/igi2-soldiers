@@ -178,6 +178,16 @@ public sealed class Igi2SoldierLevel
             Igi2Gameplay.SeeThrough(body, detection);
         }
 
+        // HumanSoldier_UpdateInternalDataAfterLoadHandler: a living soldier of team 1 is no business of the detectors; it is listed
+        // again as it dies.
+        foreach (Igi2HumanSoldier body in soldiers.Bodies)
+        {
+            if (body is { Team: 1, IsDead: false })
+            {
+                detection.Remove(body);
+            }
+        }
+
         Igi2AiGraphs placed = Igi2AiGraphs.Of(graphs.Select(entry =>
         {
             Igi2AiGraph walked = Igi2AiGraph.From(entry.Value, text => Igi2LineScript.Evaluate(text, guest.Natives, functions));
