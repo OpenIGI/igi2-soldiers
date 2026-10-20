@@ -9,7 +9,8 @@ namespace OpenIGI.Mods.Igi2Soldiers.Presentation;
 
 /// <summary>Draws a mission's I.G.I. 2 soldiers as I.G.I. 2 draws its own: each body posed by its skeleton, its weapon in hand.</summary>
 /// <remarks>
-/// The bodies are I.G.I. 2's world models (<c>Igi2Soldiers.Models</c>), as the tick last posed them, read from the I.G.I. 2
+/// The bodies are I.G.I. 2's world models (<see cref="Igi2SoldierLevel.Models"/>) of the soldiers in the world, as the tick last
+/// posed them, read from the I.G.I. 2
 /// packs the soldiers' kit opened and drawn by I.G.I. 2's own renderer of them, which skins them all in one batch. Both games
 /// measure 4,096 units to the metre, so the bodies stand in Project I.G.I.'s world as they do in their own.
 /// </remarks>
@@ -34,7 +35,7 @@ internal sealed class Igi2SoldierPresenter : ITaskPresenter
 
     /// <inheritdoc/>
     public void Draw(in Camera3D camera, in Matrix4f projection, float blend) =>
-        _renderer.DrawWorld(_level.Soldiers.Models(_level.Ticks), camera, projection);
+        _renderer.DrawWorld(_level.Models(), camera, projection);
 
     /// <inheritdoc/>
     public void Dispose() => _renderer.Dispose();

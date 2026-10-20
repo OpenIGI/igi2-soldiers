@@ -186,6 +186,23 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         int started = soldiers.HandedOver.Values.Count(static body => ((Igi2HumanAi)body.Mind!).HasStarted);
         output.WriteLine($"{claimed} claimed, {started} minds started under the walk");
         Assert.True(started > 0, "no soldier ran under the walk");
+
+        // A container takes its soldiers out of the world: their bodies take no part and are not drawn, until it puts them back.
+        (HumanTask held, Igi2HumanSoldier body) = soldiers.HandedOver.First(static p => p.Key.Id == 2003);
+        ConditionalContainerTask container = held.Ancestors().OfType<ConditionalContainerTask>().First();
+        int drawn = soldiers.Models().Count;
+        container.IsActive = false;
+        soldiers.Tick();
+        int heldOut = soldiers.HandedOver.Count(p => p.Key.Ancestors().Contains(container));
+        Assert.False(body.IsActive);
+        Assert.False(body.DetectionInfo().IsActive);
+        Assert.DoesNotContain(soldiers.Models(), m => ReferenceEquals(m.Instance, body));
+        Assert.True(soldiers.Models().Count < drawn, $"{heldOut} held out, yet {soldiers.Models().Count} of {drawn} models still drawn");
+
+        container.IsActive = true;
+        soldiers.Tick();
+        Assert.True(body.IsActive);
+        Assert.Contains(soldiers.Models(), m => ReferenceEquals(m.Instance, body));
     }
 
     [RequiresTitleDataFact("igi2")]

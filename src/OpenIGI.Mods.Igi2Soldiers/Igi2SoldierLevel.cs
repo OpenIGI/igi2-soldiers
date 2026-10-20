@@ -51,6 +51,9 @@ public sealed class Igi2SoldierLevel
     private readonly Dictionary<HumanTask, Igi2AiSquadTask> _squads;
     private readonly TaskTree _tasks;
     private Igi1Carriers? _carriers;
+    private readonly Dictionary<HumanTask, bool> _inWorld = [];
+    private TitleWorldModel[] _drawn = [];
+    private int _drawnTick = -1;
 
     private Igi2SoldierLevel(
         TaskTree tasks,
@@ -81,6 +84,38 @@ public sealed class Igi2SoldierLevel
 
     /// <summary>Gets each Project I.G.I. soldier handed over, and the I.G.I. 2 soldier that stands for it.</summary>
     public IReadOnlyDictionary<HumanTask, Igi2HumanSoldier> HandedOver { get; }
+
+    /// <summary>Gets the models the soldiers in the world draw as of the last tick: each body posed, its weapon in hand.</summary>
+    /// <returns>The models.</returns>
+    /// <remarks>
+    /// As <c>Igi2Soldiers.Models</c> builds them, for the soldiers whose Project I.G.I. tasks are in the world: one a container
+    /// holds out of it is not there to be seen.
+    /// </remarks>
+    public IReadOnlyList<TitleWorldModel> Models()
+    {
+        if (_drawnTick != _tick)
+        {
+            List<TitleWorldModel> models = [];
+            foreach ((HumanTask igi1, Igi2HumanSoldier body) in HandedOver)
+            {
+                if (_inWorld.GetValueOrDefault(igi1) && body.Model is { } model)
+                {
+                    models.AddRange(Game.Igi2.ViewModel.Igi2BodyFrame.Build(
+                        body,
+                        body.BodyPose(),
+                        model.Name,
+                        body.Weapon.Inventory?.Current?.WeaponType.FixedModel,
+                        _tick,
+                        body.Weapon.Firing?.Flashes));
+                }
+            }
+
+            _drawn = [.. models];
+            _drawnTick = _tick;
+        }
+
+        return _drawn;
+    }
 
     /// <summary>Gets the ticks the level has run.</summary>
     public int Ticks => _tick;
@@ -280,6 +315,7 @@ public sealed class Igi2SoldierLevel
 
         Igi2LevelRun run = new(root, guest.Natives, functions) { Dynamic = new Igi2DynamicTasks() };
         built = new Igi2SoldierLevel(guest.Tasks, root, run, soldiers, mindWorld, bodies, squads) { _carriers = carriers };
+        built.FollowWorld(initial: true);
         log.Information("Mods", $"{bodies.Count} of the mission's soldiers are I.G.I. 2's.");
         return built;
     }
@@ -348,9 +384,25 @@ public sealed class Igi2SoldierLevel
         Finish();
     }
 
+    // A soldier is in the world while the Project I.G.I. task it stands for is (Human+3318 as its containers put it in and take it
+    // out); the body takes part as that changes, and its script may switch it between.
+    private void FollowWorld(bool initial)
+    {
+        foreach ((HumanTask igi1, Igi2HumanSoldier body) in HandedOver)
+        {
+            bool now = ConditionalContainerGate.IsTaskActive(igi1);
+            if (initial || _inWorld.GetValueOrDefault(igi1) != now)
+            {
+                _inWorld[igi1] = now;
+                body.IsActive = now;
+            }
+        }
+    }
+
     private void Finish()
     {
         _carriers?.Follow();
+        FollowWorld(initial: false);
         _tick++;
         foreach ((HumanTask igi1, Igi2HumanSoldier body) in HandedOver)
         {
