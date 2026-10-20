@@ -11,6 +11,7 @@ using OpenIGI.Formats.Ai;
 using OpenIGI.Game.Ai;
 using OpenIGI.Game.Igi1.Ai;
 using OpenIGI.Game.Igi1.World;
+using OpenIGI.Game.Igi2.Ai;
 using OpenIGI.Game.Igi2.Ai.Runtime;
 using OpenIGI.Game.Igi2.Collision;
 using OpenIGI.Game.Igi2.Soldiers;
@@ -185,6 +186,62 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         int started = soldiers.HandedOver.Values.Count(static body => ((Igi2HumanAi)body.Mind!).HasStarted);
         output.WriteLine($"{claimed} claimed, {started} minds started under the walk");
         Assert.True(started > 0, "no soldier ran under the walk");
+    }
+
+    [RequiresTitleDataFact("igi2")]
+    public void Soldiers_riding_a_train_stand_on_it_and_their_graph_rides_with_it()
+    {
+        string igi1 = GameData.RequireRoot();
+        string missionDirectory = Path.Combine(igi1, "missions", "location0", "level1");
+        (LevelTask level, WorldScene scene, TerrainData terrain) = Load(igi1);
+        Dictionary<WorldPlacement, Igi2RigidObject> solids = [];
+        Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object(), solids);
+
+        // Project I.G.I. moves the trains: here, every placement stands where it was built until it is moved by hand.
+        Dictionary<WorldPlacement, (Vector3d, Matrix3f)> moved = [];
+        Igi1Carriers carriers = new(solids, p => moved.TryGetValue(p, out (Vector3d At, Matrix3f Turn) pose)
+            ? (true, pose.At, pose.Turn)
+            : (true, p.Position, p.Orientation));
+        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
+        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+            kit,
+            SoldierTable.Shipped,
+            level,
+            NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance),
+            world,
+            PlayerSpawn.FindGameplayTask(level)!,
+            AiDifficulty.Normal,
+            new IgiRandom(),
+            NullLogger.Instance,
+            carriers);
+        Dictionary<HumanTask, double> spawned = soldiers.HandedOver.ToDictionary(static p => p.Key, static p => p.Value.Position.Z);
+        for (int tick = 0; tick < 150; tick++)
+        {
+            soldiers.Tick();
+        }
+
+        // The guards on the trains stand on their graphs, which are in the trains' frames and ride them: none sinks.
+        List<(HumanTask Task, Igi2HumanSoldier Body)> riders = [.. soldiers.HandedOver
+            .Where(p => NavGraphs.CarrierOf(level, p.Key.Children.OfType<HumanAiTask>().Single().GraphId) is not null)
+            .Select(static p => (p.Key, p.Value))];
+        output.WriteLine($"{riders.Count} ride: {string.Join(", ", riders.Select(static r => r.Task.Id))}");
+        Assert.NotEmpty(riders);
+        foreach ((HumanTask task, Igi2HumanSoldier body) in riders)
+        {
+            Assert.True(body.Position.Z > spawned[task] - (3 * 4096.0), $"{task.Id} sank from {spawned[task] / 4096:F1} m to {body.Position.Z / 4096:F1} m");
+        }
+
+        // The train moves ten metres: its solid follows, and so does the graph its guard walks.
+        (HumanTask rider, Igi2HumanSoldier guard) = soldiers.HandedOver.First(static p => p.Key.Id == 3031);
+        GameTask train = NavGraphs.CarrierOf(level, rider.Children.OfType<HumanAiTask>().Single().GraphId)!;
+        WorldPlacement car = solids.Keys.First(p => ReferenceEquals(p.Owner, train) && !p.IsAttached);
+        Igi2AiGraphNode node = ((Igi2HumanAi)guard.Mind!).Graph!.Nodes.Values.First();
+        Vector3d before = node.Position;
+        moved[car] = (car.Position + new Vector3d(10.0, 0.0, 0.0), car.Orientation);
+        soldiers.Tick();
+        Assert.Equal(before.X + (10.0 * 4096.0), node.Position.X, 1);
+        Assert.Equal(car.Position.X + 10.0, solids[car].Position.X / 4096.0, 3);
     }
 
     private sealed class RecordingEvents : IHumanEvents

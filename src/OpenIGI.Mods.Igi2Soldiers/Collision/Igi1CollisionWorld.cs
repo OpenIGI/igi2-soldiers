@@ -31,29 +31,32 @@ public static class Igi1CollisionWorld
     /// <param name="terrain">The level's terrain, or <see langword="null"/> for none.</param>
     /// <param name="material">Translates a Project I.G.I. game material into I.G.I. 2's row, or <see langword="null"/> for none.</param>
     /// <param name="terrainOwner">What a hit on the ground reports as struck.</param>
+    /// <param name="solids">Receives each placement's solid, for <see cref="Igi1Carriers"/>; <see langword="null"/> for none.</param>
     /// <returns>The world.</returns>
     /// <exception cref="ArgumentNullException">A required argument is <see langword="null"/>.</exception>
     public static Igi2CollisionWorld Build(
         IEnumerable<WorldPlacement> placements,
         TerrainData? terrain,
         Func<int, int?> material,
-        object terrainOwner)
+        object terrainOwner,
+        IDictionary<WorldPlacement, Igi2RigidObject>? solids = null)
     {
         ArgumentNullException.ThrowIfNull(placements);
         ArgumentNullException.ThrowIfNull(material);
         ArgumentNullException.ThrowIfNull(terrainOwner);
 
-        List<Igi2RigidObject> solids = [];
+        List<Igi2RigidObject> made = [];
         foreach (WorldPlacement placement in placements)
         {
             if (Solid(placement, material) is { } solid)
             {
-                solids.Add(solid);
+                made.Add(solid);
+                solids?.Add(placement, solid);
             }
         }
 
         Igi1GroundCollider? ground = terrain is null ? null : new Igi1GroundCollider(terrain, material, terrainOwner);
-        return new Igi2CollisionWorld(solids, ground) { Ground = terrain };
+        return new Igi2CollisionWorld(made, ground) { Ground = terrain };
     }
 
     /// <summary>One placement as an I.G.I. 2 solid, or <see langword="null"/> when its model has no collision.</summary>

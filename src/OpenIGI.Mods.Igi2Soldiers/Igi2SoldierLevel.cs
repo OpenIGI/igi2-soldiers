@@ -6,12 +6,14 @@ using OpenIGI.Formats.Ai;
 using OpenIGI.Game.Ai;
 using OpenIGI.Game.Level;
 using OpenIGI.Game.Igi2.Ai;
+using OpenIGI.Game.Igi1.Ai;
 using OpenIGI.Game.Igi2.Ai.Runtime;
 using OpenIGI.Game.Igi2.Audio;
 using OpenIGI.Game.Igi2.Collision;
 using OpenIGI.Game.Igi2.Detection;
 using OpenIGI.Game.Igi2.Flow;
 using OpenIGI.Game.Igi2.Humans;
+using OpenIGI.Game.Igi2.Interaction;
 using OpenIGI.Game.Igi2.Player;
 using OpenIGI.Game.Igi2.Scripting;
 using OpenIGI.Game.Igi2.Soldiers;
@@ -19,6 +21,7 @@ using OpenIGI.Game.Igi2.Weapons;
 using OpenIGI.Game.Igi2.World;
 using OpenIGI.Game.Player;
 using OpenIGI.Game.World;
+using OpenIGI.Mods.Igi2Soldiers.Collision;
 using OpenIGI.Mods.Igi2Soldiers.Mapping;
 using SoldierBodies = OpenIGI.Game.Igi2.Soldiers.Igi2Soldiers;
 
@@ -47,6 +50,7 @@ public sealed class Igi2SoldierLevel
 
     private readonly Dictionary<HumanTask, Igi2AiSquadTask> _squads;
     private readonly TaskTree _tasks;
+    private Igi1Carriers? _carriers;
 
     private Igi2SoldierLevel(
         TaskTree tasks,
@@ -115,6 +119,10 @@ public sealed class Igi2SoldierLevel
     /// <param name="difficulty">The session's difficulty.</param>
     /// <param name="random">The soldiers' run stream.</param>
     /// <param name="logger">Where diagnostics go.</param>
+    /// <param name="carriers">
+    /// The level's moving models, which the soldiers' solids follow and whose graphs ride them; <see langword="null"/> for a
+    /// level taken as it was built.
+    /// </param>
     /// <returns>The level.</returns>
     public static Igi2SoldierLevel Spawn(
         Igi2SoldierKit kit,
@@ -125,7 +133,8 @@ public sealed class Igi2SoldierLevel
         HumanPlayerTask player,
         AiDifficulty difficulty,
         IgiRandom random,
-        IOpenIgiLogger? logger = null)
+        IOpenIgiLogger? logger = null,
+        Igi1Carriers? carriers = null)
     {
         ArgumentNullException.ThrowIfNull(kit);
         ArgumentNullException.ThrowIfNull(table);
@@ -232,7 +241,11 @@ public sealed class Igi2SoldierLevel
 
         Igi2AiGraphs placed = Igi2AiGraphs.Of(graphs.Select(entry =>
         {
-            Igi2AiGraph walked = Igi2AiGraph.From(entry.Value, text => Igi2LineScript.Evaluate(text, guest.Natives, functions));
+            // A graph on a train is held in the train's frame and rides it.
+            IIgi2AttachParent? carrier = level is LevelTask placed && NavGraphs.CarrierOf(placed, entry.Key) is { } model
+                ? carriers?.Carrier(model)
+                : null;
+            Igi2AiGraph walked = Igi2AiGraph.From(entry.Value, text => Igi2LineScript.Evaluate(text, guest.Natives, functions), carrier);
             walked.Id = entry.Key;
             return walked;
         }));
@@ -266,7 +279,7 @@ public sealed class Igi2SoldierLevel
         }
 
         Igi2LevelRun run = new(root, guest.Natives, functions) { Dynamic = new Igi2DynamicTasks() };
-        built = new Igi2SoldierLevel(guest.Tasks, root, run, soldiers, mindWorld, bodies, squads);
+        built = new Igi2SoldierLevel(guest.Tasks, root, run, soldiers, mindWorld, bodies, squads) { _carriers = carriers };
         log.Information("Mods", $"{bodies.Count} of the mission's soldiers are I.G.I. 2's.");
         return built;
     }
@@ -337,6 +350,7 @@ public sealed class Igi2SoldierLevel
 
     private void Finish()
     {
+        _carriers?.Follow();
         _tick++;
         foreach ((HumanTask igi1, Igi2HumanSoldier body) in HandedOver)
         {

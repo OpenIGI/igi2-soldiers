@@ -127,16 +127,25 @@ public sealed class Igi2SoldiersMod : IOpenIgiMod, IOpenIgiPresentationMod
             _kit.Guest.FileSystem.RegisterDevice(
                 new Igi1MissionDevice(Path.Combine(igi1, build.Loaded.Descriptor.MissionDirectory), _kit.Scripts));
             Game.World.TerrainData? terrain = build.Loaded.Terrain is { IsUsable: true } usable ? usable : null;
+            // The models' solids follow Project I.G.I.'s collision of them as they move, and what rides them goes along.
+            Dictionary<Game.World.WorldPlacement, Game.Igi2.Collision.Igi2RigidObject> solids = [];
+            Game.Igi2.Collision.Igi2CollisionWorld world =
+                Igi1CollisionWorld.Build(scene.Placements, terrain, static material => material, (object?)terrain ?? scene, solids);
+            Game.World.ObjectCollisionIndex? moving = build.Solids;
+            Igi1Carriers carriers = new(
+                solids,
+                moving is null ? null : placement => (moving.TryGetPose(placement, out Vector3d at, out Matrix3f turn), at, turn));
             _level = Igi2SoldierLevel.Spawn(
                 _kit,
                 Table,
                 build.LevelRoot,
                 build.Graphs ?? [],
-                Igi1CollisionWorld.Build(scene.Placements, terrain, static material => material, (object?)terrain ?? scene),
+                world,
                 player,
                 (AiDifficulty)Math.Clamp(build.Mission.PlayerDifficulty, (int)AiDifficulty.Easy, (int)AiDifficulty.Hard),
                 new IgiRandom(),
-                _logger);
+                _logger,
+                carriers);
             _level.JoinTo(build.Mission);
             _level.BindTo(build.Walker);
         }
