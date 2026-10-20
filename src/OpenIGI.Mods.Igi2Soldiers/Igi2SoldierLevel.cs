@@ -46,8 +46,10 @@ public sealed class Igi2SoldierLevel
     private int _tick;
 
     private readonly Dictionary<HumanTask, Igi2AiSquadTask> _squads;
+    private readonly TaskTree _tasks;
 
     private Igi2SoldierLevel(
+        TaskTree tasks,
         LevelTask root,
         Igi2LevelRun run,
         SoldierBodies soldiers,
@@ -55,6 +57,7 @@ public sealed class Igi2SoldierLevel
         IReadOnlyDictionary<HumanTask, Igi2HumanSoldier> handedOver,
         Dictionary<HumanTask, Igi2AiSquadTask> squads)
     {
+        _tasks = tasks;
         Root = root;
         _run = run;
         _squads = squads;
@@ -263,7 +266,7 @@ public sealed class Igi2SoldierLevel
         }
 
         Igi2LevelRun run = new(root, guest.Natives, functions) { Dynamic = new Igi2DynamicTasks() };
-        built = new Igi2SoldierLevel(root, run, soldiers, mindWorld, bodies, squads);
+        built = new Igi2SoldierLevel(guest.Tasks, root, run, soldiers, mindWorld, bodies, squads);
         log.Information("Mods", $"{bodies.Count} of the mission's soldiers are I.G.I. 2's.");
         return built;
     }
@@ -299,6 +302,15 @@ public sealed class Igi2SoldierLevel
         }
 
         walk.AddTickEnd(EndTick);
+    }
+
+    /// <summary>Takes the level down as its mission is left: the guest's tasks are deleted, and the ids they kept are free.</summary>
+    public void Leave()
+    {
+        if (Root.Parent is not null)
+        {
+            _tasks.Delete(Root);
+        }
     }
 
     /// <summary>Runs the level a tick on its own: every squad and its soldier, then each soldier's body and mind.</summary>

@@ -1,0 +1,9 @@
+{
+  "id": "igi2soldiers",
+  "name": "I.G.I. 2 soldiers",
+  "version": "0.1",
+  "apiVersion": 1,
+  "titles": [ "igi1" ],
+  "assembly": "OpenIGI.Mods.Igi2Soldiers.dll",
+  "affectsSimulation": true
+}

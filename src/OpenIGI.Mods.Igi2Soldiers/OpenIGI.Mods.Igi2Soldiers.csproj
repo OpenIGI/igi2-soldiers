@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Mapping\igi2soldiers.json" LogicalName="igi2soldiers.json" />
+    <None Include="mod.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
