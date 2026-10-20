@@ -380,7 +380,7 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
     {
         public Vector3d Feet => feet;
 
-        public Vector3d Eyes => new(feet.X, feet.Y, feet.Z + AiSoldier.DetectionMarkAboveFeet(crouching: false));
+        public Vector3d Eyes => new(feet.X, feet.Y, feet.Z + Igi1HumanAi.DetectionMarkAboveFeet(crouching: false));
 
         public bool IsKeepingLow => false;
 
