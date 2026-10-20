@@ -152,6 +152,41 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         Assert.True(first.Damage > 0f);
     }
 
+    [RequiresTitleDataFact("igi2")]
+    public void Claimed_soldiers_run_where_the_Project_IGI_walk_reaches_them()
+    {
+        string igi1 = GameData.RequireRoot();
+        string missionDirectory = Path.Combine(igi1, "missions", "location0", "level1");
+        (LevelTask level, WorldScene scene, TerrainData terrain) = Load(igi1);
+        int claimed = Igi2SoldierLevel.Claim(level, SoldierTable.Shipped);
+        Dictionary<int, GraphFile> graphs = NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance);
+        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
+        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+            kit,
+            SoldierTable.Shipped,
+            level,
+            graphs,
+            Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object()),
+            PlayerSpawn.FindGameplayTask(level)!,
+            AiDifficulty.Normal,
+            new IgiRandom(),
+            NullLogger.Instance);
+        Assert.Equal(claimed, soldiers.HandedOver.Count);
+
+        LevelUpdateWalker walk = new(level);
+        soldiers.BindTo(walk);
+        for (int tick = 0; tick < 60; tick++)
+        {
+            walk.Tick();
+        }
+
+        Assert.Equal(60, soldiers.Ticks);
+        int started = soldiers.HandedOver.Values.Count(static body => ((Igi2HumanAi)body.Mind!).HasStarted);
+        output.WriteLine($"{claimed} claimed, {started} minds started under the walk");
+        Assert.True(started > 0, "no soldier ran under the walk");
+    }
+
     private sealed class RecordingEvents : IHumanEvents
     {
         public List<WeaponHit> Hits { get; } = [];

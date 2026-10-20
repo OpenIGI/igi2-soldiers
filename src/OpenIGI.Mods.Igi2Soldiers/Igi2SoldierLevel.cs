@@ -4,6 +4,7 @@ using OpenIGI.Core.Titles;
 using OpenIGI.Engine.Tasks;
 using OpenIGI.Formats.Ai;
 using OpenIGI.Game.Ai;
+using OpenIGI.Game.Level;
 using OpenIGI.Game.Igi2.Ai;
 using OpenIGI.Game.Igi2.Ai.Runtime;
 using OpenIGI.Game.Igi2.Audio;
@@ -44,10 +45,19 @@ public sealed class Igi2SoldierLevel
     private readonly Igi2LevelRun _run;
     private int _tick;
 
-    private Igi2SoldierLevel(LevelTask root, Igi2LevelRun run, SoldierBodies soldiers, Igi2AiWorld ai, IReadOnlyDictionary<HumanTask, Igi2HumanSoldier> handedOver)
+    private readonly Dictionary<HumanTask, Igi2AiSquadTask> _squads;
+
+    private Igi2SoldierLevel(
+        LevelTask root,
+        Igi2LevelRun run,
+        SoldierBodies soldiers,
+        Igi2AiWorld ai,
+        IReadOnlyDictionary<HumanTask, Igi2HumanSoldier> handedOver,
+        Dictionary<HumanTask, Igi2AiSquadTask> squads)
     {
         Root = root;
         _run = run;
+        _squads = squads;
         Soldiers = soldiers;
         Ai = ai;
         HandedOver = handedOver;
@@ -67,6 +77,30 @@ public sealed class Igi2SoldierLevel
 
     /// <summary>Gets the ticks the level has run.</summary>
     public int Ticks => _tick;
+
+    /// <summary>
+    /// Claims the soldiers the table maps for I.G.I. 2, before Project I.G.I. gives its own soldiers their bodies and minds: a
+    /// claimed soldier is given neither, and is not bound into the level's walk.
+    /// </summary>
+    /// <param name="level">The Project I.G.I. mission's level.</param>
+    /// <param name="table">Which soldiers become which.</param>
+    /// <returns>How many were claimed.</returns>
+    public static int Claim(GameTask level, SoldierTable table)
+    {
+        ArgumentNullException.ThrowIfNull(level);
+        ArgumentNullException.ThrowIfNull(table);
+        int claimed = 0;
+        foreach (HumanSoldierTask igi1 in level.Descendants().OfType<HumanSoldierTask>())
+        {
+            if (table.For(AiTypeOf(MindOf(igi1))) is not null)
+            {
+                igi1.Driver = GameTitle.Igi2;
+                claimed++;
+            }
+        }
+
+        return claimed;
+    }
 
     /// <summary>Spawns a mission's I.G.I. 2 soldiers.</summary>
     /// <param name="kit">What they are made of.</param>
@@ -105,6 +139,7 @@ public sealed class Igi2SoldierLevel
         LevelTask root = (LevelTask)guest.Tasks.New(guest.Tasks.Root, guest.Types.Get(EngineTaskTypes.Level));
         GameTask dynamic = guest.Tasks.New(root, guest.Types.Get(EngineTaskTypes.Dynamic));
         Dictionary<Igi2HumanSoldierTask, HumanTask> handedOver = [];
+        Dictionary<HumanTask, Igi2AiSquadTask> squads = [];
         int spare = 4095;
 
         // Each guest task keeps the Project I.G.I. task's id when it has one the guest has not given out, else the next spare id
@@ -126,9 +161,8 @@ public sealed class Igi2SoldierLevel
 
         foreach (HumanSoldierTask igi1 in level.Descendants().OfType<HumanSoldierTask>())
         {
-            DeclaredTask? mind = igi1.Children.OfType<DeclaredTask>().FirstOrDefault(static c => c.Type.Name == "HumanAI");
-            string aiType = mind is not null && mind.TryGetValue("AI Type", out object? type) && type is string name ? name : string.Empty;
-            if (table.For(aiType) is not { } mapping)
+            DeclaredTask? mind = MindOf(igi1);
+            if (table.For(AiTypeOf(mind)) is not { } mapping)
             {
                 continue;
             }
@@ -151,6 +185,7 @@ public sealed class Igi2SoldierLevel
             ai.GraphId = mind is not null && mind.TryGetValue("Graph ID", out object? graph) && graph is int id ? id : -1;
             igi1.Driver = GameTitle.Igi2;
             handedOver[soldier] = igi1;
+            squads[igi1] = squad;
         }
 
         SoldierBodies soldiers = Igi2Gameplay.SpawnSoldiers(
@@ -228,7 +263,7 @@ public sealed class Igi2SoldierLevel
         }
 
         Igi2LevelRun run = new(root, guest.Natives, functions) { Dynamic = new Igi2DynamicTasks() };
-        built = new Igi2SoldierLevel(root, run, soldiers, mindWorld, bodies);
+        built = new Igi2SoldierLevel(root, run, soldiers, mindWorld, bodies, squads);
         log.Information("Mods", $"{bodies.Count} of the mission's soldiers are I.G.I. 2's.");
         return built;
     }
@@ -249,7 +284,24 @@ public sealed class Igi2SoldierLevel
         }
     }
 
-    /// <summary>Runs the level a tick: every squad and its soldier, then each soldier's body and mind.</summary>
+    /// <summary>
+    /// Has the Project I.G.I. level's walk run the soldiers: each squad where the walk reaches the task its soldier stands for,
+    /// so the containers that held the Project I.G.I. soldier hold the I.G.I. 2 one, and the level's tick finished as the walk's
+    /// ends.
+    /// </summary>
+    /// <param name="walk">The Project I.G.I. level's walk.</param>
+    public void BindTo(LevelRun walk)
+    {
+        ArgumentNullException.ThrowIfNull(walk);
+        foreach ((HumanTask igi1, Igi2AiSquadTask squad) in _squads)
+        {
+            walk.Bind(igi1, () => _run.Run(squad));
+        }
+
+        walk.AddTickEnd(EndTick);
+    }
+
+    /// <summary>Runs the level a tick on its own: every squad and its soldier, then each soldier's body and mind.</summary>
     /// <remarks>
     /// A Project I.G.I. task handed over dies with its I.G.I. 2 soldier, the latch the mission's scripts read
     /// (<c>HumanSoldier_N.isDead</c>).
@@ -257,6 +309,23 @@ public sealed class Igi2SoldierLevel
     public void Tick()
     {
         _run.Tick();
+        Finish();
+    }
+
+    private static DeclaredTask? MindOf(GameTask soldier) =>
+        soldier.Children.OfType<DeclaredTask>().FirstOrDefault(static c => c.Type.Name == "HumanAI");
+
+    private static string AiTypeOf(DeclaredTask? mind) =>
+        mind is not null && mind.TryGetValue("AI Type", out object? type) && type is string name ? name : string.Empty;
+
+    private void EndTick()
+    {
+        _run.EndHostedTick();
+        Finish();
+    }
+
+    private void Finish()
+    {
         _tick++;
         foreach ((HumanTask igi1, Igi2HumanSoldier body) in HandedOver)
         {
