@@ -1,0 +1,91 @@
+using OpenIGI.Core.Diagnostics;
+using OpenIGI.Core.Numerics;
+using OpenIGI.Core.Titles;
+using OpenIGI.Engine.Flow;
+using OpenIGI.Engine.Level;
+using OpenIGI.Engine.Resources;
+using OpenIGI.Engine.Tasks;
+using OpenIGI.Engine.Time;
+using OpenIGI.Engine.Vfs;
+using OpenIGI.Formats.Ai;
+using OpenIGI.Game.Ai;
+using OpenIGI.Game.Igi1.Ai;
+using OpenIGI.Game.Igi1.World;
+using OpenIGI.Game.Igi2.Ai.Runtime;
+using OpenIGI.Game.Igi2.Collision;
+using OpenIGI.Game.Igi2.Soldiers;
+using OpenIGI.Game.Player;
+using OpenIGI.Game.World;
+using OpenIGI.Mods.Igi2Soldiers.Collision;
+using OpenIGI.Mods.Igi2Soldiers.Mapping;
+using OpenIGI.Mods.Igi2Soldiers.Scripts;
+using OpenIGI.TestSupport;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace OpenIGI.Mods.Igi2Soldiers.Tests;
+
+/// <summary>Project I.G.I.'s first mission, its soldiers I.G.I. 2's.</summary>
+public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
+{
+    [RequiresTitleDataFact("igi2")]
+    public void Mission_one_s_soldiers_stand_as_I_G_I_2_soldiers_minded_and_ticking()
+    {
+        string igi1 = GameData.RequireRoot();
+        string missionDirectory = Path.Combine(igi1, "missions", "location0", "level1");
+        (LevelTask level, WorldScene scene, TerrainData terrain) = Load(igi1);
+        Dictionary<int, GraphFile> graphs = NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance);
+        HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
+
+        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
+        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object());
+
+        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+            kit, SoldierTable.Shipped, level, graphs, world, player, AiDifficulty.Normal, new IgiRandom(), NullLogger.Instance);
+
+        int mapped = level.Descendants().OfType<HumanSoldierTask>().Count(static s => s.Driver == GameTitle.Igi2);
+        output.WriteLine($"{mapped} handed over, {soldiers.HandedOver.Count} bodies");
+        Assert.True(mapped > 10, $"only {mapped} soldiers handed over");
+        Assert.Equal(mapped, soldiers.HandedOver.Count);
+        foreach (Igi2HumanSoldier body in soldiers.HandedOver.Values)
+        {
+            Igi2HumanAi mind = Assert.IsType<Igi2HumanAi>(body.Mind);
+            Assert.NotNull(mind.Script);
+            Assert.NotNull(mind.Graph);
+        }
+
+        for (int tick = 0; tick < 150; tick++)
+        {
+            soldiers.Tick();
+        }
+
+        Assert.All(soldiers.HandedOver.Values, static body =>
+        {
+            Assert.False(body.IsDead);
+            Assert.True(double.IsFinite(body.Position.Z));
+        });
+        Assert.All(soldiers.HandedOver.Values, static body => Assert.True(((Igi2HumanAi)body.Mind!).HasStarted));
+    }
+
+    private static (LevelTask, WorldScene, TerrainData) Load(string root)
+    {
+        VirtualFileSystem fileSystem = new();
+        fileSystem.RegisterDevice(new LocalFileDevice(root));
+        ResourceRegistry resources = new(fileSystem);
+        GameLoop loop = new(new ManualTimeSource());
+        PlayerTaskTypes.RegisterAll(loop.Types);
+        loop.Types.Register<ConditionalContainerTask>(ConditionalContainerTask.TypeName);
+        MissionRegistry registry = new();
+        registry.Register(loop.Natives);
+        registry.Scan(fileSystem, resources, loop.Natives);
+        MagicObjectRegistry magic = new();
+        magic.Register(loop.Natives);
+        magic.Load(resources, loop.Natives);
+        TerrainLoader terrainLoader = new(resources, loop.Natives);
+        LevelTask levelRoot = (LevelTask)loop.Tasks.New(loop.Tasks.Root, loop.Types.Get(EngineTaskTypes.Level));
+        LevelLoader levelLoader = new(levelRoot, loop.TaskCommands, loop.Natives, resources);
+        LoadedMission mission = new MissionLoader(registry, fileSystem, resources, levelLoader, null, terrainLoader).Load(1);
+        return (levelRoot, WorldScene.Build(mission, levelRoot, magic), mission.Terrain!);
+    }
+}
