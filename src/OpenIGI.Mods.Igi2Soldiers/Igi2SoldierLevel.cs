@@ -53,6 +53,7 @@ public sealed class Igi2SoldierLevel
     private Igi1Carriers? _carriers;
     private HumanPlayerTask? _player;
     private Collision.Igi2RoundOdds? _odds;
+    private Igi2Sounds? _sounds;
     private readonly Dictionary<HumanTask, bool> _inWorld = [];
     private TitleWorldModel[] _drawn = [];
     private int _drawnTick = -1;
@@ -243,6 +244,7 @@ public sealed class Igi2SoldierLevel
             squads[igi1] = squad;
         }
 
+        Igi2Sounds sounds = new(kit.SoundDefinitions, audio);
         SoldierBodies soldiers = Igi2Gameplay.SpawnSoldiers(
             root,
             services,
@@ -250,7 +252,7 @@ public sealed class Igi2SoldierLevel
             kit.Clips,
             kit.Models,
             services.TryGet(out Igi2PlayerTuning? tuning) ? tuning : null,
-            new Igi2Sounds(kit.SoundDefinitions, audio),
+            sounds,
             random,
             difficulty,
             natives: guest.Natives,
@@ -324,7 +326,7 @@ public sealed class Igi2SoldierLevel
         }
 
         Igi2LevelRun run = new(root, guest.Natives, functions) { Dynamic = new Igi2DynamicTasks() };
-        built = new Igi2SoldierLevel(guest.Tasks, root, run, soldiers, mindWorld, bodies, squads) { _carriers = carriers, _player = player, _odds = odds };
+        built = new Igi2SoldierLevel(guest.Tasks, root, run, soldiers, mindWorld, bodies, squads) { _carriers = carriers, _player = player, _odds = odds, _sounds = sounds };
         built.FollowWorld(initial: true);
         log.Information("Mods", $"{bodies.Count} of the mission's soldiers are I.G.I. 2's, at {difficulty}.");
         return built;
@@ -427,6 +429,10 @@ public sealed class Igi2SoldierLevel
     {
         _carriers?.Follow();
         FollowWorld(initial: false);
+
+        // The soldiers' sounds run once a tick after the level, as the game's own do: each follows what it hangs off, and one
+        // that has ended is let go.
+        _sounds?.Run();
         _tick++;
         foreach ((HumanTask igi1, Igi2HumanSoldier body) in HandedOver)
         {
