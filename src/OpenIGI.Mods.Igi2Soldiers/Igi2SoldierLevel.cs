@@ -164,6 +164,7 @@ public sealed class Igi2SoldierLevel
     /// The level's moving models, which the soldiers' solids follow and whose graphs ride them; <see langword="null"/> for a
     /// level taken as it was built.
     /// </param>
+    /// <param name="audio">Where the soldiers' sounds are heard, I.G.I. 2's own; <see langword="null"/> where nothing is.</param>
     /// <returns>The level.</returns>
     public static Igi2SoldierLevel Spawn(
         Igi2SoldierKit kit,
@@ -175,7 +176,8 @@ public sealed class Igi2SoldierLevel
         AiDifficulty difficulty,
         IgiRandom random,
         IOpenIgiLogger? logger = null,
-        Igi1Carriers? carriers = null)
+        Igi1Carriers? carriers = null,
+        ITitleAudio? audio = null)
     {
         ArgumentNullException.ThrowIfNull(kit);
         ArgumentNullException.ThrowIfNull(table);
@@ -248,7 +250,7 @@ public sealed class Igi2SoldierLevel
             kit.Clips,
             kit.Models,
             services.TryGet(out Igi2PlayerTuning? tuning) ? tuning : null,
-            new Igi2Sounds(kit.SoundDefinitions, null),
+            new Igi2Sounds(kit.SoundDefinitions, audio),
             random,
             difficulty,
             natives: guest.Natives,

@@ -1,6 +1,7 @@
 using OpenIGI.Core.Diagnostics;
 using OpenIGI.Core.Numerics;
 using OpenIGI.Core.Titles;
+using OpenIGI.Engine.Audio;
 using OpenIGI.Engine.Flow;
 using OpenIGI.Engine.Level;
 using OpenIGI.Engine.Resources;
@@ -43,8 +44,10 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
         Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object());
 
+        RecordingAudio audio = new();
         Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
-            kit, SoldierTable.Shipped, level, graphs, world, player, AiDifficulty.Normal, new IgiRandom(), NullLogger.Instance);
+            kit, SoldierTable.Shipped, level, graphs, world, player, AiDifficulty.Normal, new IgiRandom(), NullLogger.Instance, audio: audio);
+        Assert.Contains(kit.SoundBanks, static bank => bank.EndsWith("/ENGLISH", StringComparison.Ordinal));
 
         int mapped = level.Descendants().OfType<HumanSoldierTask>().Count(static s => s.Driver == GameTitle.Igi2);
         output.WriteLine($"{mapped} handed over, {soldiers.HandedOver.Count} bodies");
@@ -61,6 +64,10 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         {
             soldiers.Tick();
         }
+
+        // They are heard: I.G.I. 2's own definitions, played where they stand.
+        output.WriteLine($"{audio.Played.Count} sound(s): {string.Join(", ", audio.Played.Distinct().Take(8))}");
+        Assert.NotEmpty(audio.Played);
 
         Assert.All(soldiers.HandedOver.Values, static body =>
         {
@@ -357,6 +364,21 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         soldiers.Tick();
         Assert.Equal(before.X + (10.0 * 4096.0), node.Position.X, 1);
         Assert.Equal(car.Position.X + 10.0, solids[car].Position.X / 4096.0, 3);
+    }
+
+    private sealed class RecordingAudio : ITitleAudio
+    {
+        public List<string> Played { get; } = [];
+
+        public void UseDefinitions(ISoundDefinitionLookup definitions, IReadOnlyList<string> bankDirectories)
+        {
+        }
+
+        public ITitleVoice? Play(string definition, Vector3d positionInUnits, bool? looping = null)
+        {
+            Played.Add(definition);
+            return null;
+        }
     }
 
     private sealed class RecordingEvents : IHumanEvents

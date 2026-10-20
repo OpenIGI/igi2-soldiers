@@ -75,6 +75,7 @@ public sealed class Igi2SoldiersMod : IOpenIgiMod, IOpenIgiPresentationMod
     private sealed class Session : IContentModule
     {
         private IServiceCatalog? _services;
+        private ITitleAudio? _audio;
         private IOpenIgiLogger _logger = NullLogger.Instance;
         private Igi2SoldierKit? _kit;
         private Igi2SoldierLevel? _level;
@@ -145,7 +146,11 @@ public sealed class Igi2SoldiersMod : IOpenIgiMod, IOpenIgiPresentationMod
                 (AiDifficulty)Math.Clamp(build.Mission.PlayerDifficulty, (int)AiDifficulty.Easy, (int)AiDifficulty.Hard),
                 new IgiRandom(),
                 _logger,
-                carriers);
+                carriers,
+                // Their sounds are I.G.I. 2's, heard through the game's own device beside its sounds.
+                _audio ??= _services is not null && _services.TryGet(out ITitleAudioMixer? mixer)
+                    ? mixer.Open(_kit.Guest.FileSystem, _kit.SoundDefinitions, _kit.SoundBanks)
+                    : null);
             _level.JoinTo(build.Mission, build.LevelRoot);
             _level.BindTo(build.Walker);
         }

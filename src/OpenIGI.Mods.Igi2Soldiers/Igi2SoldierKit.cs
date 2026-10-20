@@ -54,6 +54,9 @@ public sealed class Igi2SoldierKit
     /// <summary>Gets the sounds' definitions.</summary>
     public Igi2SoundDefinitions SoundDefinitions { get; }
 
+    /// <summary>Gets the directories whose sound archives and files the definitions play, in mount order.</summary>
+    public IReadOnlyList<string> SoundBanks { get; init; } = [];
+
     /// <summary>Gets the scripts I.G.I. 2's own soldiers and squads mostly run.</summary>
     public Igi2GenericScripts Scripts { get; }
 
@@ -86,7 +89,12 @@ public sealed class Igi2SoldierKit
         Func<string, MefModel?> models = Igi2DrawableScene.Models(Igi2ModelTable.Create([.. packs.Select(static p => p.Pack)]), packs);
         Igi2SoundDefinitions sounds = guest.Session.Services.TryGet(out Igi2SoundDefinitions? defined) ? defined : new Igi2SoundDefinitions(log);
         sounds.Load(guest.Resources, soundDirectories);
-        return new Igi2SoldierKit(guest, packs, clips, models, sounds, Igi2GenericScripts.Find(dataRoot));
+        return new Igi2SoldierKit(guest, packs, clips, models, sounds, Igi2GenericScripts.Find(dataRoot))
+        {
+            // The banks the definitions play from: each sounds directory and its language's, as a mission of the game's own
+            // mounts them (Igi2SoundDefinitions.BankDirectories).
+            SoundBanks = [.. soundDirectories.SelectMany(static directory => new[] { directory, $"{directory}/{Igi2SoundDefinitions.DefaultLanguage}" })],
+        };
     }
 
     // The locations whose packs name a model the table dresses a soldier in, in their own order.
