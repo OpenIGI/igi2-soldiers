@@ -105,6 +105,53 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
     }
 
     [RequiresTitleDataFact("igi2")]
+    public void A_guard_generator_spawns_its_I_G_I_2_lives_one_at_a_time_each_as_the_last_dies()
+    {
+        string igi1 = GameData.RequireRoot();
+        (LevelTask level, WorldScene scene, TerrainData terrain, string missionDirectory) = LoadMission(igi1, 4);
+        Dictionary<int, GraphFile> graphs = NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance);
+        HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
+        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
+        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object());
+        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+            kit, SoldierTable.Shipped, level, graphs, world, player, AiDifficulty.Normal, new IgiRandom(), NullLogger.Instance);
+
+        // Mission 4's GuardGenerator_600 generates while "1", four lives at most.
+        GuardGeneratorTask generator = level.Descendants().OfType<GuardGeneratorTask>().First(static g => g.Name == "GuardGenerator_600");
+        HumanTask template = generator.Children.OfType<HumanTask>().Single();
+        IGuardLives lives = Assert.IsAssignableFrom<IGuardLives>(generator.DrivenLives);
+
+        // Not in the world until the generator spawns it (0x487EE0 has no child before its first clone).
+        Assert.False(soldiers.HandedOver[template].IsActive);
+        Assert.Equal(GuardSpawnDecision.FirstSpawn, generator.Advance(isOn: true, childIsDead: lives.IsDead));
+        lives.Spawn();
+        soldiers.Tick();
+        Igi2HumanSoldier first = soldiers.HandedOver[template];
+        Assert.True(first.IsActive);
+        Assert.False(lives.IsDead);
+
+        // It dies; the generator's next update takes it out and puts the next life in, fresh, where the template stands.
+        ((IWeaponHitTarget)first).WeaponHit(new WeaponHit(first.Position, default, 1000f, new Vector3f(1f, 0f, 0f), null, new object()));
+        soldiers.Tick();
+        Assert.True(template.IsDead);
+        Assert.True(lives.IsDead);
+        Assert.Equal(GuardSpawnDecision.Respawn, generator.Advance(isOn: true, childIsDead: lives.IsDead));
+        lives.Spawn();
+        Igi2HumanSoldier second = soldiers.HandedOver[template];
+        Assert.NotSame(first, second);
+        Assert.False(first.IsActive);
+        Assert.True(second.IsActive);
+        Assert.False(second.IsDead);
+        Assert.False(template.IsDead);
+        // Where the template stands, its feet on the ground under the authored point.
+        Assert.Equal(template.Position.X, second.Position.X);
+        Assert.Equal(template.Position.Y, second.Position.Y);
+        Assert.InRange(template.Position.Z - second.Position.Z, 0.0, 1.5 * 4096.0);
+        Assert.Equal(2, generator.SpawnCount);
+    }
+
+    [RequiresTitleDataFact("igi2")]
     public void A_soldier_detects_the_Project_IGI_player_standing_before_it()
     {
         string igi1 = GameData.RequireRoot();
@@ -411,6 +458,12 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
 
     internal static (LevelTask, WorldScene, TerrainData) Load(string root)
     {
+        (LevelTask level, WorldScene scene, TerrainData terrain, _) = LoadMission(root, 1);
+        return (level, scene, terrain);
+    }
+
+    internal static (LevelTask, WorldScene, TerrainData, string) LoadMission(string root, int missionId)
+    {
         VirtualFileSystem fileSystem = new();
         fileSystem.RegisterDevice(new LocalFileDevice(root));
         ResourceRegistry resources = new(fileSystem);
@@ -427,7 +480,7 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         TerrainLoader terrainLoader = new(resources, loop.Natives);
         LevelTask levelRoot = (LevelTask)loop.Tasks.New(loop.Tasks.Root, loop.Types.Get(EngineTaskTypes.Level));
         LevelLoader levelLoader = new(levelRoot, loop.TaskCommands, loop.Natives, resources);
-        LoadedMission mission = new MissionLoader(registry, fileSystem, resources, levelLoader, null, terrainLoader).Load(1);
-        return (levelRoot, WorldScene.Build(mission, levelRoot, magic), mission.Terrain!);
+        LoadedMission mission = new MissionLoader(registry, fileSystem, resources, levelLoader, null, terrainLoader).Load(missionId);
+        return (levelRoot, WorldScene.Build(mission, levelRoot, magic), mission.Terrain!, Path.Combine(root, mission.Descriptor.MissionDirectory));
     }
 }

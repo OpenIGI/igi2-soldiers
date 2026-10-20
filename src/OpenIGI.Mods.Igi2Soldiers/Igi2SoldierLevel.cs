@@ -4,9 +4,8 @@ using OpenIGI.Core.Titles;
 using OpenIGI.Engine.Tasks;
 using OpenIGI.Formats.Ai;
 using OpenIGI.Game.Ai;
-using OpenIGI.Game.Level;
-using OpenIGI.Game.Igi2.Ai;
 using OpenIGI.Game.Igi1.Ai;
+using OpenIGI.Game.Igi2.Ai;
 using OpenIGI.Game.Igi2.Ai.Runtime;
 using OpenIGI.Game.Igi2.Audio;
 using OpenIGI.Game.Igi2.Collision;
@@ -19,7 +18,9 @@ using OpenIGI.Game.Igi2.Scripting;
 using OpenIGI.Game.Igi2.Soldiers;
 using OpenIGI.Game.Igi2.Weapons;
 using OpenIGI.Game.Igi2.World;
+using OpenIGI.Game.Level;
 using OpenIGI.Game.Player;
+using OpenIGI.Game.Weapons;
 using OpenIGI.Game.World;
 using OpenIGI.Mods.Igi2Soldiers.Collision;
 using OpenIGI.Mods.Igi2Soldiers.Mapping;
@@ -56,6 +57,7 @@ public sealed class Igi2SoldierLevel
     private Igi2Sounds? _sounds;
     private float _damageFromIgi1 = 1f;
     private readonly Dictionary<HumanTask, bool> _inWorld = [];
+    private readonly Dictionary<HumanTask, Igi2HumanSoldier> _handedOver;
     private TitleWorldModel[] _drawn = [];
     private int _drawnTick = -1;
 
@@ -65,7 +67,7 @@ public sealed class Igi2SoldierLevel
         Igi2LevelRun run,
         SoldierBodies soldiers,
         Igi2AiWorld ai,
-        IReadOnlyDictionary<HumanTask, Igi2HumanSoldier> handedOver,
+        Dictionary<HumanTask, Igi2HumanSoldier> handedOver,
         Dictionary<HumanTask, Igi2AiSquadTask> squads)
     {
         _tasks = tasks;
@@ -74,7 +76,7 @@ public sealed class Igi2SoldierLevel
         _squads = squads;
         Soldiers = soldiers;
         Ai = ai;
-        HandedOver = handedOver;
+        _handedOver = handedOver;
     }
 
     /// <summary>Gets the guest's level.</summary>
@@ -87,7 +89,7 @@ public sealed class Igi2SoldierLevel
     public Igi2AiWorld Ai { get; }
 
     /// <summary>Gets each Project I.G.I. soldier handed over, and the I.G.I. 2 soldier that stands for it.</summary>
-    public IReadOnlyDictionary<HumanTask, Igi2HumanSoldier> HandedOver { get; }
+    public IReadOnlyDictionary<HumanTask, Igi2HumanSoldier> HandedOver => _handedOver;
 
     /// <summary>Gets the models the soldiers in the world draw as of the last tick: each body posed, its weapon in hand.</summary>
     /// <returns>The models.</returns>
@@ -216,6 +218,9 @@ public sealed class Igi2SoldierLevel
             guest.Tasks.TryBindId(spare--, task);
         }
 
+        // The lives of each generator's template, beyond the first: a GuardGenerator (0x487EE0) clones its template as often as
+        // it may, so every life it may spawn is made here, out of the world until the generator puts it in.
+        Dictionary<HumanTask, List<(Igi2AiSquadTask Squad, Igi2HumanSoldierTask Soldier)>> lives = [];
         foreach (HumanSoldierTask igi1 in level.Descendants().OfType<HumanSoldierTask>())
         {
             HumanAiTask? mind = MindOf(igi1);
@@ -224,25 +229,38 @@ public sealed class Igi2SoldierLevel
                 continue;
             }
 
-            Igi2AiSquadTask squad = (Igi2AiSquadTask)guest.Tasks.New(dynamic, guest.Types.Get(Igi2AiSquadTask.TypeName));
-            Bind(squad, -1);
-            Igi2HumanSoldierTask soldier = (Igi2HumanSoldierTask)guest.Tasks.New(squad, guest.Types.Get(Igi2HumanSoldierTask.TypeName));
-            Bind(soldier, igi1.Id);
-            soldier.Position = igi1.Position;
-            soldier.Gamma = igi1.Gamma;
-            soldier.Team = igi1.Team;
-            soldier.Model = mapping.ModelFor(igi1.Id);
-            soldier.WeaponScript = mapping.Weapon;
-            soldier.BoneHierarchy = 1;
-            Igi2HumanAiTask ai = (Igi2HumanAiTask)guest.Tasks.New(soldier, guest.Types.Get(Igi2HumanAiTask.TypeName));
-            Bind(ai, mind?.Id ?? -1);
+            int count = igi1.Parent is GuardGeneratorTask generator ? Math.Max(1, generator.MaxSpawns) : 1;
+            for (int life = 0; life < count; life++)
+            {
+                Igi2AiSquadTask squad = (Igi2AiSquadTask)guest.Tasks.New(dynamic, guest.Types.Get(Igi2AiSquadTask.TypeName));
+                Bind(squad, -1);
+                Igi2HumanSoldierTask soldier = (Igi2HumanSoldierTask)guest.Tasks.New(squad, guest.Types.Get(Igi2HumanSoldierTask.TypeName));
+                Bind(soldier, life == 0 ? igi1.Id : -1);
+                soldier.Position = igi1.Position;
+                soldier.Gamma = igi1.Gamma;
+                soldier.Team = igi1.Team;
+                soldier.Model = mapping.ModelFor(igi1.Id);
+                soldier.WeaponScript = mapping.Weapon;
+                soldier.BoneHierarchy = 1;
+                Igi2HumanAiTask ai = (Igi2HumanAiTask)guest.Tasks.New(soldier, guest.Types.Get(Igi2HumanAiTask.TypeName));
+                Bind(ai, life == 0 ? mind?.Id ?? -1 : -1);
 
-            ai.AiTypeName = mapping.AiType;
-            ai.AnimTypeName = mapping.AnimType;
-            ai.GraphId = mind?.GraphId ?? -1;
+                ai.AiTypeName = mapping.AiType;
+                ai.AnimTypeName = mapping.AnimType;
+                ai.GraphId = mind?.GraphId ?? -1;
+                if (life == 0)
+                {
+                    handedOver[soldier] = igi1;
+                    squads[igi1] = squad;
+                }
+
+                if (igi1.Parent is GuardGeneratorTask)
+                {
+                    (lives.TryGetValue(igi1, out var made) ? made : lives[igi1] = []).Add((squad, soldier));
+                }
+            }
+
             igi1.Driver = GameTitle.Igi2;
-            handedOver[soldier] = igi1;
-            squads[igi1] = squad;
         }
 
         Igi2Sounds sounds = new(kit.SoundDefinitions, audio);
@@ -328,6 +346,26 @@ public sealed class Igi2SoldierLevel
 
         Igi2LevelRun run = new(root, guest.Natives, functions) { Dynamic = new Igi2DynamicTasks() };
         built = new Igi2SoldierLevel(guest.Tasks, root, run, soldiers, mindWorld, bodies, squads) { _carriers = carriers, _player = player, _odds = odds, _sounds = sounds, _damageFromIgi1 = table.DamageFromIgi1 };
+
+        // A generator's later lives wait out of the world; the generator's update spawns them.
+        foreach ((HumanTask igi1, List<(Igi2AiSquadTask Squad, Igi2HumanSoldierTask Soldier)> made) in lives)
+        {
+            List<(Igi2AiSquadTask, Igi2HumanSoldier)> pool = [];
+            foreach ((Igi2AiSquadTask squad, Igi2HumanSoldierTask soldier) in made)
+            {
+                if (soldier.Body is { } body)
+                {
+                    pool.Add((squad, body));
+                    body.IsActive = false;
+                }
+            }
+
+            if (pool.Count > 0 && igi1.Parent is GuardGeneratorTask generator)
+            {
+                generator.DrivenLives = new GuardLives(built, igi1, pool);
+            }
+        }
+
         built.FollowWorld(initial: true);
         log.Information("Mods", $"{bodies.Count} of the mission's soldiers are I.G.I. 2's, at {difficulty}.");
         return built;
@@ -351,7 +389,9 @@ public sealed class Igi2SoldierLevel
         mission.Joined.ExplosionDamageScale = _damageFromIgi1;
         foreach (Igi2HumanSoldierTask soldier in Root.Descendants().OfType<Igi2HumanSoldierTask>())
         {
-            mission.Joined.JoinExplosions(soldier);
+            // A soldier out of the world -- held by its container, or a generator's life not yet spawned or taken out -- is on no
+            // list a blast walks.
+            mission.Joined.JoinExplosions(new InWorld(soldier));
             mission.Joined.JoinHumans(soldier);
         }
     }
@@ -365,9 +405,9 @@ public sealed class Igi2SoldierLevel
     public void BindTo(LevelRun walk)
     {
         ArgumentNullException.ThrowIfNull(walk);
-        foreach ((HumanTask igi1, Igi2AiSquadTask squad) in _squads)
+        foreach (HumanTask igi1 in _squads.Keys)
         {
-            walk.Bind(igi1, () => _run.Run(squad));
+            walk.Bind(igi1, () => _run.Run(_squads[igi1]));
         }
 
         walk.AddTickEnd(EndTick);
@@ -442,6 +482,57 @@ public sealed class Igi2SoldierLevel
             if (body.IsDead && !igi1.IsDead)
             {
                 igi1.IsDead = true;
+            }
+        }
+    }
+
+    // The template's life in the world is now another: the walk runs its squad, the Project I.G.I. task stands for its body and
+    // lives again, and it is in the world as the task is.
+    private void Wear(HumanTask igi1, Igi2AiSquadTask squad, Igi2HumanSoldier body)
+    {
+        _squads[igi1] = squad;
+        _handedOver[igi1] = body;
+        igi1.IsDead = false;
+        bool now = ConditionalContainerGate.IsTaskActive(igi1);
+        _inWorld[igi1] = now;
+        body.IsActive = now;
+        _drawnTick = -1;
+    }
+
+    // A generator's lives of an I.G.I. 2 soldier: the first is the one handed over, the rest wait out of the world.
+    private sealed class GuardLives(Igi2SoldierLevel level, HumanTask template, List<(Igi2AiSquadTask Squad, Igi2HumanSoldier Body)> lives)
+        : IGuardLives
+    {
+        private int _current = -1;
+
+        public bool IsDead => _current >= 0 && lives[_current].Body.IsDead;
+
+        public void Spawn()
+        {
+            // 0x487EE0: the dead life is deleted (0x4015F0) as the next is cloned (0x488000).
+            if (_current >= 0)
+            {
+                lives[_current].Body.IsActive = false;
+            }
+
+            if (_current + 1 >= lives.Count)
+            {
+                return;
+            }
+
+            _current++;
+            level.Wear(template, lives[_current].Squad, lives[_current].Body);
+        }
+    }
+
+    // A soldier as a blast finds it: only while it is in the world.
+    private sealed class InWorld(Igi2HumanSoldierTask soldier) : IExplosionHitTarget
+    {
+        public void ExplosionHit(in ExplosionHit hit)
+        {
+            if (soldier.Body is { IsActive: true })
+            {
+                soldier.ExplosionHit(hit);
             }
         }
     }
