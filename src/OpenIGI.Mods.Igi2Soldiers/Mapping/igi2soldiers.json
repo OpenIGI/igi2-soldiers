@@ -1,0 +1,372 @@
+// What each Project I.G.I. soldier becomes as an I.G.I. 2 soldier. A type mapped to null stays a Project I.G.I. soldier.
+// Copy this file beside the mod to change it; the copy is read instead.
+{
+  "soldiers": {
+    "AITYPE_PATROL_AK": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_AK47\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "rsg1_1",
+        "rsg2_1",
+        "rsg3_1"
+      ]
+    },
+    "AITYPE_PATROL_SPAS": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_SPAS12\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "rsg1_1",
+        "rsg2_1",
+        "rsg3_1"
+      ]
+    },
+    "AITYPE_PATROL_UZI": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_UZI\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "rsg1_1",
+        "rsg2_1",
+        "rsg3_1"
+      ]
+    },
+    "AITYPE_PATROL_PISTOL": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_PISTOL",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_MAKAROV\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "rsg1_1",
+        "rsg2_1",
+        "rsg3_1"
+      ]
+    },
+    "AITYPE_GUARD_AK": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_AK47\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "rsg1_1",
+        "rsg2_1",
+        "rsg3_1"
+      ]
+    },
+    "AITYPE_GUARD_SPAS": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_SPAS12\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "rsg1_1",
+        "rsg2_1",
+        "rsg3_1"
+      ]
+    },
+    "AITYPE_GUARD_UZI": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_UZI\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "rsg1_1",
+        "rsg2_1",
+        "rsg3_1"
+      ]
+    },
+    "AITYPE_GUARD_PISTOL": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_PISTOL",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_MAKAROV\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "rsg1_1",
+        "rsg2_1",
+        "rsg3_1"
+      ]
+    },
+    "AITYPE_SPETNAZ_PATROL_AK": {
+      "aiType": "HUMANAI_TYPE_C2_TOUGH_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_AK47\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "resg1_1",
+        "resg2_1",
+        "resg3_1"
+      ]
+    },
+    "AITYPE_SPETNAZ_PATROL_SPAS": {
+      "aiType": "HUMANAI_TYPE_C2_TOUGH_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_SPAS12\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "resg1_1",
+        "resg2_1",
+        "resg3_1"
+      ]
+    },
+    "AITYPE_SPETNAZ_PATROL_UZI": {
+      "aiType": "HUMANAI_TYPE_C2_TOUGH_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_UZI\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "resg1_1",
+        "resg2_1",
+        "resg3_1"
+      ]
+    },
+    "AITYPE_SPETNAZ_PATROL_PISTOL": {
+      "aiType": "HUMANAI_TYPE_C2_TOUGH_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_PISTOL",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_MAKAROV\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "resg1_1",
+        "resg2_1",
+        "resg3_1"
+      ]
+    },
+    "AITYPE_SPETNAZ_GUARD_AK": {
+      "aiType": "HUMANAI_TYPE_C2_TOUGH_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_AK47\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "resg1_1",
+        "resg2_1",
+        "resg3_1"
+      ]
+    },
+    "AITYPE_SPETNAZ_GUARD_SPAS": {
+      "aiType": "HUMANAI_TYPE_C2_TOUGH_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_SPAS12\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "resg1_1",
+        "resg2_1",
+        "resg3_1"
+      ]
+    },
+    "AITYPE_SPETNAZ_GUARD_UZI": {
+      "aiType": "HUMANAI_TYPE_C2_TOUGH_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_UZI\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "resg1_1",
+        "resg2_1",
+        "resg3_1"
+      ]
+    },
+    "AITYPE_SPETNAZ_GUARD_PISTOL": {
+      "aiType": "HUMANAI_TYPE_C2_TOUGH_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_PISTOL",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_MAKAROV\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "resg1_1",
+        "resg2_1",
+        "resg3_1"
+      ]
+    },
+    "AITYPE_MAFIA_PATROL_AK": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_AK47\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "les1_1",
+        "les2_1",
+        "les3_1"
+      ]
+    },
+    "AITYPE_MAFIA_PATROL_SPAS": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_SPAS12\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "les1_1",
+        "les2_1",
+        "les3_1"
+      ]
+    },
+    "AITYPE_MAFIA_PATROL_UZI": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_UZI\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "les1_1",
+        "les2_1",
+        "les3_1"
+      ]
+    },
+    "AITYPE_MAFIA_PATROL_PISTOL": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_PISTOL",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_MAKAROV\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "les1_1",
+        "les2_1",
+        "les3_1"
+      ]
+    },
+    "AITYPE_MAFIA_GUARD_AK": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_AK47\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "les1_1",
+        "les2_1",
+        "les3_1"
+      ]
+    },
+    "AITYPE_MAFIA_GUARD_SPAS": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_SPAS12\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "les1_1",
+        "les2_1",
+        "les3_1"
+      ]
+    },
+    "AITYPE_MAFIA_GUARD_UZI": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_UZI\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "les1_1",
+        "les2_1",
+        "les3_1"
+      ]
+    },
+    "AITYPE_MAFIA_GUARD_PISTOL": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_PISTOL",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_MAKAROV\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "les1_1",
+        "les2_1",
+        "les3_1"
+      ]
+    },
+    "AITYPE_SECURITY_PATROL_AK": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_AK47\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "libgu1_1",
+        "libgu2_1",
+        "libgu3_1"
+      ]
+    },
+    "AITYPE_SECURITY_PATROL_SPAS": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_SPAS12\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "libgu1_1",
+        "libgu2_1",
+        "libgu3_1"
+      ]
+    },
+    "AITYPE_SECURITY_PATROL_UZI": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_UZI\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "libgu1_1",
+        "libgu2_1",
+        "libgu3_1"
+      ]
+    },
+    "AITYPE_SECURITY_PATROL_PISTOL": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_PISTOL",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_MAKAROV\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "libgu1_1",
+        "libgu2_1",
+        "libgu3_1"
+      ]
+    },
+    "AITYPE_SECURITY_GUARD_AK": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_AK47\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "libgu1_1",
+        "libgu2_1",
+        "libgu3_1"
+      ]
+    },
+    "AITYPE_SECURITY_GUARD_SPAS": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_SPAS12\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "libgu1_1",
+        "libgu2_1",
+        "libgu3_1"
+      ]
+    },
+    "AITYPE_SECURITY_GUARD_UZI": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_UZI\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "libgu1_1",
+        "libgu2_1",
+        "libgu3_1"
+      ]
+    },
+    "AITYPE_SECURITY_GUARD_PISTOL": {
+      "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_PISTOL",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_MAKAROV\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "libgu1_1",
+        "libgu2_1",
+        "libgu3_1"
+      ]
+    },
+    "AITYPE_SNIPER": {
+      "aiType": "HUMANAI_TYPE_C2_NORMAL_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_DRAGUNOV\")",
+      "models": [
+        "rsg1_1",
+        "rsg2_1",
+        "rsg3_1"
+      ]
+    },
+    "AITYPE_GUNNER": {
+      "aiType": "HUMANAI_TYPE_C2_TOUGH_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_MINIMI\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+      "models": [
+        "resg1_1",
+        "resg2_1",
+        "resg3_1"
+      ]
+    },
+    "AITYPE_RPG": {
+      "aiType": "HUMANAI_TYPE_C2_TOUGH_SOLDIER",
+      "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+      "weapon": "Human_AddWeapon(\"WEAPON_ID_RPG7\"), Human_AddWeapon(\"WEAPON_ID_MAKAROV\")",
+      "models": [
+        "resg1_1",
+        "resg2_1",
+        "resg3_1"
+      ]
+    },
+    "AITYPE_CIVILIAN": null,
+    "AITYPE_EKK": null,
+    "AITYPE_PRIBOI": null,
+    "AITYPE_ANYA": null
+  },
+  "default": {
+    "aiType": "HUMANAI_TYPE_C1_NORMAL_SOLDIER",
+    "animType": "HUMANAI_ANIMTYPE_SOLDIER_RIFLE",
+    "weapon": "Human_AddWeapon(\"WEAPON_ID_AK47\"), Human_AddWeapon(\"WEAPON_ID_GRENADE\")",
+    "models": [
+      "rsg1_1",
+      "rsg2_1",
+      "rsg3_1"
+    ]
+  },
+  "damageFromIgi1": 1.0,
+  "damageFromIgi2": 1.0
+}
