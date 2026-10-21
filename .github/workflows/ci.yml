@@ -1,0 +1,53 @@
+name: CI
+
+# Every pull request, and every push to master. The mod is built and tested against OpenIGI's source, checked out
+# beside it as igi-remastered, at the branch OPENIGI_REF names (develop unless the repository variable says otherwise).
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build-and-test
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: igi2-soldiers
+
+      # OpenIGI is private: a token that can read it (a fine-grained one, contents: read on OpenIGI/OpenIGI).
+      - uses: actions/checkout@v4
+        with:
+          repository: OpenIGI/OpenIGI
+          ref: ${{ vars.OPENIGI_REF || 'develop' }}
+          token: ${{ secrets.OPENIGI_READ_TOKEN }}
+          path: igi-remastered
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: igi2-soldiers/global.json
+
+      - name: Build
+        working-directory: igi2-soldiers
+        run: dotnet build OpenIGI.Mods.Igi2Soldiers.slnx --configuration Release
+
+      # No retail data here: the tests that need it skip themselves and say why.
+      - name: Test
+        working-directory: igi2-soldiers
+        run: dotnet test OpenIGI.Mods.Igi2Soldiers.slnx --configuration Release --no-build
+
+      - name: Keep the mod package
+        uses: actions/upload-artifact@v4
+        with:
+          name: igi2soldiers
+          path: igi2-soldiers/src/OpenIGI.Mods.Igi2Soldiers/bin/Release/net10.0/mod/

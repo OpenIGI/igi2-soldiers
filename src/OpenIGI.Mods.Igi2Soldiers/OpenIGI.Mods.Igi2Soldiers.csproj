@@ -15,15 +15,21 @@
     <InternalsVisibleTo Include="OpenIGI.Mods.Igi2Soldiers.Tests" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Engine\OpenIGI.Modding\OpenIGI.Modding.csproj" />
-    <ProjectReference Include="..\..\src\Game\OpenIGI.Game.Igi1\OpenIGI.Game.Igi1.csproj" />
-    <ProjectReference Include="..\..\src\Game\OpenIGI.Game.Igi2\OpenIGI.Game.Igi2.csproj" />
-    <ProjectReference Include="..\..\src\Engine\OpenIGI.Modding.Presentation\OpenIGI.Modding.Presentation.csproj" />
-    <ProjectReference Include="..\..\src\Game\OpenIGI.Presentation.Igi2\OpenIGI.Presentation.Igi2.csproj" />
+  <!-- Against a checkout of the game (Directory.Build.props): its projects, and the SDK's package build from beside them. -->
+  <ItemGroup Condition="'$(OpenIgiFromSource)' == 'true'">
+    <ProjectReference Include="$(OpenIgiRoot)src\Engine\OpenIGI.Modding\OpenIGI.Modding.csproj" />
+    <ProjectReference Include="$(OpenIgiRoot)src\Game\OpenIGI.Game.Igi1\OpenIGI.Game.Igi1.csproj" />
+    <ProjectReference Include="$(OpenIgiRoot)src\Game\OpenIGI.Game.Igi2\OpenIGI.Game.Igi2.csproj" />
+    <ProjectReference Include="$(OpenIgiRoot)src\Engine\OpenIGI.Modding.Presentation\OpenIGI.Modding.Presentation.csproj" />
+    <ProjectReference Include="$(OpenIgiRoot)src\Game\OpenIGI.Presentation.Igi2\OpenIGI.Presentation.Igi2.csproj" />
+  </ItemGroup>
+
+  <!-- Against a release of it: the SDK package brings the same assemblies, and the package build with them. -->
+  <ItemGroup Condition="'$(OpenIgiFromSource)' != 'true'">
+    <PackageReference Include="OpenIGI.Modding.Sdk" />
   </ItemGroup>
 
   <!-- Its package, bin/<config>/<tfm>/mod/, as the launcher installs it. -->
-  <Import Project="..\..\sdk\OpenIGI.Modding.Sdk\build\OpenIGI.Modding.Sdk.targets" />
+  <Import Project="$(OpenIgiRoot)sdk\OpenIGI.Modding.Sdk\build\OpenIGI.Modding.Sdk.targets" Condition="'$(OpenIgiFromSource)' == 'true'" />
 
 </Project>

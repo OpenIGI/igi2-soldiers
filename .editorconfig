@@ -1,0 +1,81 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{json,yml,yaml,props,targets,csproj,sln}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+# Namespaces & usings
+csharp_style_namespace_declarations = file_scoped:error
+dotnet_sort_system_directives_first = true
+
+# var usage: explicit types except when obvious
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = false:suggestion
+
+# Expression-level preferences
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = when_on_single_line:suggestion
+csharp_prefer_braces = true:error
+csharp_style_prefer_switch_expression = true:suggestion
+dotnet_style_prefer_conditional_expression_over_assignment = true:suggestion
+
+# Modifiers & readability
+# Interface members are implicitly public; requiring the redundant modifier there adds noise.
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:error
+dotnet_style_readonly_field = true:error
+csharp_prefer_static_local_function = true:warning
+
+# Naming: interfaces start with I, private fields _camelCase
+dotnet_naming_rule.interfaces_begin_with_i.severity = error
+dotnet_naming_rule.interfaces_begin_with_i.symbols = interface_symbols
+dotnet_naming_rule.interfaces_begin_with_i.style = interface_style
+dotnet_naming_symbols.interface_symbols.applicable_kinds = interface
+dotnet_naming_style.interface_style.capitalization = pascal_case
+dotnet_naming_style.interface_style.required_prefix = I
+
+# Constants and static readonly "pseudo-constants" are PascalCase regardless of accessibility --
+# they read as named values, not mutable state, so the _ prefix would be misleading.
+# These must precede the private-field rule below: the first matching rule wins.
+dotnet_naming_rule.constants_pascal_case.severity = warning
+dotnet_naming_rule.constants_pascal_case.symbols = constant_symbols
+dotnet_naming_rule.constants_pascal_case.style = pascal_case_style
+dotnet_naming_symbols.constant_symbols.applicable_kinds = field, local
+dotnet_naming_symbols.constant_symbols.applicable_accessibilities = *
+dotnet_naming_symbols.constant_symbols.required_modifiers = const
+
+dotnet_naming_rule.static_readonly_pascal_case.severity = warning
+dotnet_naming_rule.static_readonly_pascal_case.symbols = static_readonly_symbols
+dotnet_naming_rule.static_readonly_pascal_case.style = pascal_case_style
+dotnet_naming_symbols.static_readonly_symbols.applicable_kinds = field
+dotnet_naming_symbols.static_readonly_symbols.applicable_accessibilities = *
+dotnet_naming_symbols.static_readonly_symbols.required_modifiers = static, readonly
+
+dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+dotnet_naming_style.underscore_camel.required_prefix = _
+
+# Documentation
+dotnet_diagnostic.CS1591.severity = error
+
+# CA1720 (identifier contains a type name): the port deliberately mirrors the original engine's own
+# parameter-type vocabulary (Int32, Real32, Real64x3, String256, ...). Renaming those would make the
+# reverse-engineering notes harder to follow than the rule is worth.
+dotnet_diagnostic.CA1720.severity = none

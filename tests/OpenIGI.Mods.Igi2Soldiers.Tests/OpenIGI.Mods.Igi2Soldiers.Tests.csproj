@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\mods\OpenIGI.Mods.Igi2Soldiers\OpenIGI.Mods.Igi2Soldiers.csproj" />
-    <ProjectReference Include="..\OpenIGI.TestSupport\OpenIGI.TestSupport.csproj" />
-    <ProjectReference Include="..\..\src\Engine\OpenIGI.Modding.Loader\OpenIGI.Modding.Loader.csproj" />
+    <ProjectReference Include="..\..\src\OpenIGI.Mods.Igi2Soldiers\OpenIGI.Mods.Igi2Soldiers.csproj" />
+    <ProjectReference Include="$(OpenIgiRoot)tests\OpenIGI.TestSupport\OpenIGI.TestSupport.csproj" />
+    <ProjectReference Include="$(OpenIgiRoot)src\Engine\OpenIGI.Modding.Loader\OpenIGI.Modding.Loader.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -13,9 +13,14 @@
     <PackageReference Include="coverlet.collector" />
   </ItemGroup>
 
+  <!-- The tests run against the game's own test support and mod loader, which no package ships. -->
+  <Target Name="RequireOpenIgiCheckout" BeforeTargets="ResolveProjectReferences;Build" Condition="'$(OpenIgiFromSource)' != 'true'">
+    <Error Text="The tests build against a checkout of OpenIGI: set OPENIGI_ROOT to one, or clone it as igi-remastered beside this repository." />
+  </Target>
+
   <!-- The mod's package, as the launcher installs it, beside the tests. -->
   <Target Name="CopyModPackage" AfterTargets="Build">
-    <MSBuild Projects="..\..\mods\OpenIGI.Mods.Igi2Soldiers\OpenIGI.Mods.Igi2Soldiers.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+    <MSBuild Projects="..\..\src\OpenIGI.Mods.Igi2Soldiers\OpenIGI.Mods.Igi2Soldiers.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
       <Output TaskParameter="TargetOutputs" ItemName="ModAssembly" />
     </MSBuild>
     <PropertyGroup>

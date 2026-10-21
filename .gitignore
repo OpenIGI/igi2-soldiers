@@ -1,0 +1,11 @@
+[Bb]in/
+[Oo]bj/
+artifacts/
+TestResults/
+*.user
+.vs/
+.vscode/
+.idea/
+
+# Throwaway probes against the game data: never committed.
+Scratch*.cs
