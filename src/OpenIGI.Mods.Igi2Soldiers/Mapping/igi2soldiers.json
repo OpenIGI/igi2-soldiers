@@ -370,7 +370,8 @@
   "damageFromIgi1": 1.0,
   "damageFromIgi2": 1.0,
   // How well the soldiers see the player, as I.G.I. 2 sees its own: half the light to the gamma, kept between the minimum
-  // and the maximum. These are I.G.I. 2's first mission's; a light of 2 is full daylight, 0 dark.
+  // and the maximum. These are I.G.I. 2's first mission's. The light is read from the level's own lightmap under the player;
+  // "light" is used only where the level has none (2 is full daylight, 0 dark).
   "visibility": {
     "gamma": 0.8,
     "minimum": 0.2,

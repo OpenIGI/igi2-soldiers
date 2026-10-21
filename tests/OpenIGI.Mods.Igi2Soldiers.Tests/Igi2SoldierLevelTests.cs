@@ -251,9 +251,10 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
             new IgiRandom(),
             NullLogger.Instance);
 
-        // Standing still in the neutral light: half of it to the 0.8, 0.57 of a soldier's 70-metre cone. Guard 2003, 69 metres
-        // off through the compound's fence, saw the player from the first tick when the player was seen at the full length;
-        // the soldiers within 40 metres are in the security building, its walls between.
+        // Standing still in the sun the level bakes under the start, 1.51 of I.G.I. 2's two: half of it to the 0.8, 0.80 of a
+        // soldier's 70-metre cone, 56 metres. Guard 2003, 69 metres off through the compound's fence, saw the player from the
+        // first tick when the player was seen at the full length; the soldiers nearer are in the security building, its walls
+        // between.
         for (int tick = 0; tick < 900; tick++)
         {
             soldiers.Tick();
@@ -262,7 +263,9 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
                 guard => ((Igi2HumanAi)guard.Mind!).Detection.Enemies.Exists(static enemy => enemy.HasBeenFullVisible));
         }
 
-        Assert.Equal(MathF.Pow(0.5f, 0.8f), player.VisibilityFactor, 5);
+        float light = Assert.IsType<float>(Detection.Igi1GroundLight.Of(terrain, level)?.At(player.Position));
+        Assert.InRange(light, 1.5f, 1.52f);
+        Assert.Equal(MathF.Pow(light * 0.5f, 0.8f), player.VisibilityFactor, 5);
         soldiers.Leave();
         Assert.Equal(1f, player.VisibilityFactor);
     }

@@ -351,7 +351,8 @@ public sealed class Igi2SoldierLevel
         // The soldiers see the player as I.G.I. 2 sees its own, not at their cones' full length -- from their first look.
         if (player is not null)
         {
-            built._visibility = new Detection.Igi1PlayerVisibility(player, table.Visibility ?? new PlayerVisibility());
+            built._visibility = new Detection.Igi1PlayerVisibility(
+                player, table.Visibility ?? new PlayerVisibility(), Detection.Igi1GroundLight.Of(world.Ground as TerrainData, level));
             built._visibility.Update();
         }
 

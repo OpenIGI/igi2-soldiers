@@ -20,11 +20,11 @@ public sealed record SoldierMapping(string AiType, string AnimType, string Weapo
 /// <param name="Gamma">What half the light is raised to, a level's <c>Visibility Gamma</c>.</param>
 /// <param name="Minimum">The least the factor comes to, <c>Visibility Minimum</c>.</param>
 /// <param name="Maximum">The most it comes to, <c>Visibility Maximum</c>.</param>
-/// <param name="Light">The light the player stands in, on I.G.I. 2's scale, where two is as bright as counts.</param>
-/// <remarks>
-/// The defaults are I.G.I. 2's first mission's player (0.8, 0.2 and 0.95), and the light the mod's ground gives the soldiers: a
-/// player standing still is seen at 0.57 of a cone's length, 40 of a soldier's 70 metres, as far as a Project I.G.I. guard sees.
-/// </remarks>
+/// <param name="Light">
+/// The light the player stands in where the level bakes none into its ground, on I.G.I. 2's scale, where two is as bright as counts;
+/// elsewhere the level's own lightmap under the player's feet is read.
+/// </param>
+/// <remarks>The defaults are I.G.I. 2's first mission's player: 0.8, 0.2 and 0.95.</remarks>
 public sealed record PlayerVisibility(float Gamma = 0.8f, float Minimum = 0.2f, float Maximum = 0.95f, float Light = 1f);
 
 /// <summary>The mod's mapping table: which Project I.G.I. soldiers become which I.G.I. 2 soldiers, and how their damage carries.</summary>

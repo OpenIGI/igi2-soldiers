@@ -20,15 +20,18 @@ namespace OpenIGI.Mods.Igi2Soldiers.Detection;
 /// opens fire as a level starts where Project I.G.I.'s own guards, which see 40, do not.
 /// </para>
 /// <para>
-/// The light is the table's (<see cref="PlayerVisibility.Light"/>): the mod's ground gives every surface I.G.I. 2's neutral light,
-/// as it does the soldiers'. Moving is read from how far the feet go in a tick; turning on the spot, which I.G.I. 2 counts a
+/// The light is what the level bakes into the ground under the player's feet (<see cref="Igi1GroundLight"/>), as I.G.I. 2 reads
+/// its own player's from the lightmap it stands on; where the level bakes none, the table's (<see cref="PlayerVisibility.Light"/>).
+/// Moving is read from how far the feet go in a tick; turning on the spot, which I.G.I. 2 counts a
 /// twentieth, is not seen through the body. A loud shot is one of the player's own gunshots that reaches further than I.G.I. 2's
 /// loud range, heard as the level broadcasts it.
 /// </para>
 /// </remarks>
 /// <param name="player">The Project I.G.I. player.</param>
 /// <param name="tuning">The visibility parameters.</param>
-internal sealed class Igi1PlayerVisibility(HumanPlayerTask player, PlayerVisibility tuning) : IHumanAiEventTarget
+/// <param name="ground">The level's ground light, or <see langword="null"/> where it bakes none.</param>
+internal sealed class Igi1PlayerVisibility(HumanPlayerTask player, PlayerVisibility tuning, Igi1GroundLight? ground = null)
+    : IHumanAiEventTarget
 {
     /// <summary>How fast, in metres a second, the feet go at the least that counts as moving.</summary>
     public const double MovingSpeed = 0.3;
@@ -41,6 +44,9 @@ internal sealed class Igi1PlayerVisibility(HumanPlayerTask player, PlayerVisibil
 
     /// <summary>Gets the player.</summary>
     public HumanPlayerTask Player => player;
+
+    /// <summary>Gets the light the player stood in at the last update, on I.G.I. 2's scale.</summary>
+    public float Light { get; private set; } = tuning.Light;
 
     /// <inheritdoc/>
     /// <remarks>The player's own gunshot past I.G.I. 2's loud range lights it for <see cref="Igi2GunFire.LoudVisibilityTicks"/>.</remarks>
@@ -65,7 +71,8 @@ internal sealed class Igi1PlayerVisibility(HumanPlayerTask player, PlayerVisibil
         }
 
         _lastFeet = feet;
-        float factor = Measure(_ignoreLight != 0, player.Body?.IsKeepingLow ?? false, speed, tuning);
+        Light = ground?.At(feet) ?? tuning.Light;
+        float factor = Measure(_ignoreLight != 0, player.Body?.IsKeepingLow ?? false, speed, tuning, Light);
         if (_ignoreLight > 0)
         {
             _ignoreLight--;
@@ -80,14 +87,15 @@ internal sealed class Igi1PlayerVisibility(HumanPlayerTask player, PlayerVisibil
     /// <param name="low">Whether the player keeps low.</param>
     /// <param name="speed">How fast the feet go, in metres a second.</param>
     /// <param name="tuning">The visibility parameters.</param>
+    /// <param name="light">The light the player stands in, on I.G.I. 2's scale; <see langword="null"/> for the table's.</param>
     /// <returns>The factor.</returns>
-    public static float Measure(bool lit, bool low, double speed, PlayerVisibility tuning)
+    public static float Measure(bool lit, bool low, double speed, PlayerVisibility tuning, float? light = null)
     {
         ArgumentNullException.ThrowIfNull(tuning);
         float factor = 1f;
         if (!lit)
         {
-            double half = Math.Clamp(tuning.Light * 0.5, 0.0, 1.0);
+            double half = Math.Clamp((light ?? tuning.Light) * 0.5, 0.0, 1.0);
             factor = (float)Math.Pow(half, tuning.Gamma);
         }
 
