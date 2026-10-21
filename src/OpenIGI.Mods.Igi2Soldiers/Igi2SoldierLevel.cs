@@ -170,6 +170,7 @@ public sealed class Igi2SoldierLevel
     /// level taken as it was built.
     /// </param>
     /// <param name="audio">Where the soldiers' sounds are heard, I.G.I. 2's own; <see langword="null"/> where nothing is.</param>
+    /// <param name="objectLight">The light the level bakes into its buildings' floors, which the soldiers see the player by indoors.</param>
     /// <returns>The level.</returns>
     public static Igi2SoldierLevel Spawn(
         Igi2SoldierKit kit,
@@ -182,7 +183,8 @@ public sealed class Igi2SoldierLevel
         IgiRandom random,
         IOpenIgiLogger? logger = null,
         Igi1Carriers? carriers = null,
-        ITitleAudio? audio = null)
+        ITitleAudio? audio = null,
+        Detection.Igi1ObjectLight? objectLight = null)
     {
         ArgumentNullException.ThrowIfNull(kit);
         ArgumentNullException.ThrowIfNull(table);
@@ -352,7 +354,10 @@ public sealed class Igi2SoldierLevel
         if (player is not null)
         {
             built._visibility = new Detection.Igi1PlayerVisibility(
-                player, table.Visibility ?? new PlayerVisibility(), Detection.Igi1GroundLight.Of(world.Ground as TerrainData, level));
+                player,
+                table.Visibility ?? new PlayerVisibility(),
+                Detection.Igi1GroundLight.Of(world.Ground as TerrainData, level),
+                objectLight);
             built._visibility.Update();
         }
 

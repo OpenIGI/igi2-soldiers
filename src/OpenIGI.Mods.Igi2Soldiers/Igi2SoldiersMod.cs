@@ -150,9 +150,18 @@ public sealed class Igi2SoldiersMod : IOpenIgiMod, IOpenIgiPresentationMod
                 // Their sounds are I.G.I. 2's, heard through the game's own device beside its sounds.
                 _audio ??= _services is not null && _services.TryGet(out ITitleAudioMixer? mixer)
                     ? mixer.Open(_kit.Guest.FileSystem, _kit.SoundDefinitions, _kit.SoundBanks)
-                    : null);
+                    : null,
+                // The light the level bakes into its buildings, which the soldiers see the player by indoors.
+                Detection.Igi1ObjectLight.Of(scene.Placements, LightmapArchive(Path.Combine(igi1, build.Loaded.Descriptor.MissionDirectory))));
             _level.JoinTo(build.Mission, build.LevelRoot);
             _level.BindTo(build.Walker);
+        }
+
+        // A level's object lightmaps, lightmaps/lightmaps.res in its mission directory; none where it bakes none.
+        private static Formats.Ilff.IresArchive? LightmapArchive(string missionDirectory)
+        {
+            string path = Path.Combine(missionDirectory, "lightmaps", "lightmaps.res");
+            return File.Exists(path) ? Formats.Ilff.IresArchive.Read(File.ReadAllBytes(path)) : null;
         }
 
         private string? DataRoot(GameTitle title) =>

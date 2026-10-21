@@ -21,8 +21,8 @@ public sealed record SoldierMapping(string AiType, string AnimType, string Weapo
 /// <param name="Minimum">The least the factor comes to, <c>Visibility Minimum</c>.</param>
 /// <param name="Maximum">The most it comes to, <c>Visibility Maximum</c>.</param>
 /// <param name="Light">
-/// The light the player stands in where the level bakes none into its ground, on I.G.I. 2's scale, where two is as bright as counts;
-/// elsewhere the level's own lightmap under the player's feet is read.
+/// The light the player stands in where the level bakes none under its feet, on I.G.I. 2's scale: one shows a surface as bright
+/// as its texture, Project I.G.I.'s brightest; elsewhere the level's own lightmap under the player's feet is read.
 /// </param>
 /// <remarks>The defaults are I.G.I. 2's first mission's player: 0.8, 0.2 and 0.95.</remarks>
 public sealed record PlayerVisibility(float Gamma = 0.8f, float Minimum = 0.2f, float Maximum = 0.95f, float Light = 1f);

@@ -17,8 +17,10 @@ namespace OpenIGI.Mods.Igi2Soldiers.Detection;
 /// preset -- the original's lightmaps, real-time light and lamps -- sees the same guards.
 /// </para>
 /// <para>
-/// I.G.I. 2 stores a texel's light as a byte times 2/255 (<c>Igi2TerrainVertex</c>), so a fully lit ground reads two and its
-/// detectors take half: the ramp's brightness, nought to one, is that half.
+/// The two games' light is matched by what it shows. I.G.I. 2 stores a texel's light as a byte times 2/255
+/// (<c>Igi2TerrainVertex</c>) and draws it doubled (<c>MODULATE2X</c>), so one shows the ground as bright as its texture and two
+/// twice as bright. Project I.G.I. multiplies its ground by the ramp's colour once (<c>sub_5144E0</c>, <c>ZERO, SRCCOLOR</c>):
+/// its brightest texel shows the texture as it is, I.G.I. 2's one. The ramp's brightness, nought to one, is the light as it is.
 /// </para>
 /// </remarks>
 internal sealed class Igi1GroundLight
@@ -48,7 +50,7 @@ internal sealed class Igi1GroundLight
         return bindings.IsEmpty ? null : new Igi1GroundLight(pages, bindings);
     }
 
-    /// <summary>Gets the light at a point, on I.G.I. 2's scale (nought dark, two fully lit).</summary>
+    /// <summary>Gets the light at a point, on I.G.I. 2's scale (nought dark, one as lit as Project I.G.I. lights anything).</summary>
     /// <param name="point">The point, in world units; only its X and Y are read.</param>
     /// <returns>The light, or <see langword="null"/> where no page is bound.</returns>
     public float? At(Vector3d point)
@@ -65,7 +67,7 @@ internal sealed class Igi1GroundLight
             int column = Math.Clamp((int)(u * page.Size), 0, page.Size - 1);
             int row = Math.Clamp((int)(v * page.Size), 0, page.Size - 1);
             Bgra32 lit = _bindings.Ramp[page.Texels.Span[(row * page.Size) + column]];
-            return (lit.R + lit.G + lit.B) / (3f * 255f) * 2f;
+            return (lit.R + lit.G + lit.B) / (3f * 255f);
         }
 
         return null;

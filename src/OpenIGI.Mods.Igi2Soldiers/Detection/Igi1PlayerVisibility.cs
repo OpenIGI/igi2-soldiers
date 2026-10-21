@@ -20,8 +20,9 @@ namespace OpenIGI.Mods.Igi2Soldiers.Detection;
 /// opens fire as a level starts where Project I.G.I.'s own guards, which see 40, do not.
 /// </para>
 /// <para>
-/// The light is what the level bakes into the ground under the player's feet (<see cref="Igi1GroundLight"/>), as I.G.I. 2 reads
-/// its own player's from the lightmap it stands on; where the level bakes none, the table's (<see cref="PlayerVisibility.Light"/>).
+/// The light is what the level bakes into what the player stands on, as I.G.I. 2 reads its own player's from the lightmap under
+/// its feet: a building's lightmapped floor (<see cref="Igi1ObjectLight"/>), else the ground (<see cref="Igi1GroundLight"/>), else,
+/// where the level bakes neither, the table's (<see cref="PlayerVisibility.Light"/>).
 /// Moving is read from how far the feet go in a tick; turning on the spot, which I.G.I. 2 counts a
 /// twentieth, is not seen through the body. A loud shot is one of the player's own gunshots that reaches further than I.G.I. 2's
 /// loud range, heard as the level broadcasts it.
@@ -30,7 +31,12 @@ namespace OpenIGI.Mods.Igi2Soldiers.Detection;
 /// <param name="player">The Project I.G.I. player.</param>
 /// <param name="tuning">The visibility parameters.</param>
 /// <param name="ground">The level's ground light, or <see langword="null"/> where it bakes none.</param>
-internal sealed class Igi1PlayerVisibility(HumanPlayerTask player, PlayerVisibility tuning, Igi1GroundLight? ground = null)
+/// <param name="objects">The level's lit floors, or <see langword="null"/> where it bakes none.</param>
+internal sealed class Igi1PlayerVisibility(
+    HumanPlayerTask player,
+    PlayerVisibility tuning,
+    Igi1GroundLight? ground = null,
+    Igi1ObjectLight? objects = null)
     : IHumanAiEventTarget
 {
     /// <summary>How fast, in metres a second, the feet go at the least that counts as moving.</summary>
@@ -71,7 +77,7 @@ internal sealed class Igi1PlayerVisibility(HumanPlayerTask player, PlayerVisibil
         }
 
         _lastFeet = feet;
-        Light = ground?.At(feet) ?? tuning.Light;
+        Light = objects?.At(feet) ?? ground?.At(feet) ?? tuning.Light;
         float factor = Measure(_ignoreLight != 0, player.Body?.IsKeepingLow ?? false, speed, tuning, Light);
         if (_ignoreLight > 0)
         {
