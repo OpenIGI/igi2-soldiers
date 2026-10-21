@@ -16,6 +16,17 @@ public sealed record SoldierMapping(string AiType, string AnimType, string Weapo
     public string ModelFor(int taskId) => Models[(int)((uint)taskId % (uint)Models.Count)];
 }
 
+/// <summary>How well the I.G.I. 2 soldiers see the Project I.G.I. player, as I.G.I. 2 measures its own player.</summary>
+/// <param name="Gamma">What half the light is raised to, a level's <c>Visibility Gamma</c>.</param>
+/// <param name="Minimum">The least the factor comes to, <c>Visibility Minimum</c>.</param>
+/// <param name="Maximum">The most it comes to, <c>Visibility Maximum</c>.</param>
+/// <param name="Light">The light the player stands in, on I.G.I. 2's scale, where two is as bright as counts.</param>
+/// <remarks>
+/// The defaults are I.G.I. 2's first mission's player (0.8, 0.2 and 0.95), and the light the mod's ground gives the soldiers: a
+/// player standing still is seen at 0.57 of a cone's length, 40 of a soldier's 70 metres, as far as a Project I.G.I. guard sees.
+/// </remarks>
+public sealed record PlayerVisibility(float Gamma = 0.8f, float Minimum = 0.2f, float Maximum = 0.95f, float Light = 1f);
+
 /// <summary>The mod's mapping table: which Project I.G.I. soldiers become which I.G.I. 2 soldiers, and how their damage carries.</summary>
 /// <param name="Soldiers">
 /// Each Project I.G.I. AI type (an <c>AITYPE_*</c> name) and what it becomes; a type mapped to <see langword="null"/> stays a
@@ -24,6 +35,7 @@ public sealed record SoldierMapping(string AiType, string AnimType, string Weapo
 /// <param name="Default">What an AI type the table does not name becomes, or <see langword="null"/> to leave it as it is.</param>
 /// <param name="DamageFromIgi1">What a Project I.G.I. round's damage is multiplied by when it strikes an I.G.I. 2 soldier.</param>
 /// <param name="DamageFromIgi2">What an I.G.I. 2 round's damage is multiplied by when it strikes a Project I.G.I. human.</param>
+/// <param name="Visibility">How well the soldiers see the Project I.G.I. player; <see langword="null"/> for the defaults.</param>
 /// <remarks>
 /// <para>
 /// The two games' damage and health sit on the same scale (a Project I.G.I. AK-47 round does 0.3 of a soldier's health, an
@@ -38,7 +50,8 @@ public sealed record SoldierTable(
     IReadOnlyDictionary<string, SoldierMapping?> Soldiers,
     SoldierMapping? Default,
     float DamageFromIgi1 = 1f,
-    float DamageFromIgi2 = 1f)
+    float DamageFromIgi2 = 1f,
+    PlayerVisibility? Visibility = null)
 {
     /// <summary>The name the table ships under, beside the mod's assembly, where a player's own copy overrides it.</summary>
     public const string FileName = "igi2soldiers.json";

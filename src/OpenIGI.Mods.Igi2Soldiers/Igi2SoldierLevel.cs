@@ -53,6 +53,7 @@ public sealed class Igi2SoldierLevel
     private readonly TaskTree _tasks;
     private Igi1Carriers? _carriers;
     private HumanPlayerTask? _player;
+    private Detection.Igi1PlayerVisibility? _visibility;
     private Collision.Igi2RoundOdds? _odds;
     private Igi2Sounds? _sounds;
     private float _damageFromIgi1 = 1f;
@@ -347,6 +348,13 @@ public sealed class Igi2SoldierLevel
         Igi2LevelRun run = new(root, guest.Natives, functions) { Dynamic = new Igi2DynamicTasks() };
         built = new Igi2SoldierLevel(guest.Tasks, root, run, soldiers, mindWorld, bodies, squads) { _carriers = carriers, _player = player, _odds = odds, _sounds = sounds, _damageFromIgi1 = table.DamageFromIgi1 };
 
+        // The soldiers see the player as I.G.I. 2 sees its own, not at their cones' full length -- from their first look.
+        if (player is not null)
+        {
+            built._visibility = new Detection.Igi1PlayerVisibility(player, table.Visibility ?? new PlayerVisibility());
+            built._visibility.Update();
+        }
+
         // A generator's later lives wait out of the world; the generator's update spawns them.
         foreach ((HumanTask igi1, List<(Igi2AiSquadTask Squad, Igi2HumanSoldierTask Soldier)> made) in lives)
         {
@@ -394,6 +402,12 @@ public sealed class Igi2SoldierLevel
             mission.Joined.JoinExplosions(new InWorld(soldier));
             mission.Joined.JoinHumans(soldier);
         }
+
+        // It hears the level's broadcasts for the player's loud shots.
+        if (_visibility is not null)
+        {
+            mission.Joined.JoinHumans(_visibility);
+        }
     }
 
     /// <summary>
@@ -425,6 +439,7 @@ public sealed class Igi2SoldierLevel
             _player.Events = _odds.Inner;
         }
 
+        _visibility?.Reset();
         if (Root.Parent is not null)
         {
             _tasks.Delete(Root);
@@ -472,6 +487,9 @@ public sealed class Igi2SoldierLevel
     {
         _carriers?.Follow();
         FollowWorld(initial: false);
+
+        // The player's factor for the tick just run, which the soldiers' detection reads on the next.
+        _visibility?.Update();
 
         // The soldiers' sounds run once a tick after the level, as the game's own do: each follows what it hangs off, and one
         // that has ended is let go.

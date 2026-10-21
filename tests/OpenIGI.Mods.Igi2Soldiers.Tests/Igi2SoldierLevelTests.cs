@@ -82,7 +82,8 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         soldiers.JoinTo(mission, level);
         Assert.Equal(mapped, mission.Bodies.Sources.Single().Bodies().Count());
         Assert.Equal(mapped, mission.Joined.ExplosionTargets.Count);
-        Assert.Equal(mapped, mission.Joined.Humans.Count);
+        // Every soldier, and the player's visibility, which hears the level's broadcasts for the player's loud shots.
+        Assert.Equal(mapped + 1, mission.Joined.Humans.Count);
 
         // And the other way: an event the soldiers' world raises reaches the level's own humans after them, in that game's
         // numbering, the soldiers' event whole as its context. I.G.I. 2's explosion is its twentieth, Project I.G.I.'s its
@@ -230,6 +231,43 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
     }
 
     [RequiresTitleDataFact("igi2")]
+    public void A_player_standing_where_mission_one_starts_is_seen_no_further_than_I_G_I_2_sees_its_own()
+    {
+        string igi1 = GameData.RequireRoot();
+        string missionDirectory = Path.Combine(igi1, "missions", "location0", "level1");
+        (LevelTask level, WorldScene scene, TerrainData terrain) = Load(igi1);
+        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
+        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
+        player.Body = new StandingBody(player.Position);
+        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+            kit,
+            SoldierTable.Shipped,
+            level,
+            NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance),
+            Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object()),
+            player,
+            AiDifficulty.Normal,
+            new IgiRandom(),
+            NullLogger.Instance);
+
+        // Standing still in the neutral light: half of it to the 0.8, 0.57 of a soldier's 70-metre cone. Guard 2003, 69 metres
+        // off through the compound's fence, saw the player from the first tick when the player was seen at the full length;
+        // the soldiers within 40 metres are in the security building, its walls between.
+        for (int tick = 0; tick < 900; tick++)
+        {
+            soldiers.Tick();
+            Assert.DoesNotContain(
+                soldiers.HandedOver.Values,
+                guard => ((Igi2HumanAi)guard.Mind!).Detection.Enemies.Exists(static enemy => enemy.HasBeenFullVisible));
+        }
+
+        Assert.Equal(MathF.Pow(0.5f, 0.8f), player.VisibilityFactor, 5);
+        soldiers.Leave();
+        Assert.Equal(1f, player.VisibilityFactor);
+    }
+
+    [RequiresTitleDataFact("igi2")]
     public void The_soldiers_fight_at_the_session_s_difficulty_as_I_G_I_2_s_own_do()
     {
         string igi1 = GameData.RequireRoot();
@@ -240,13 +278,14 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
         Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object());
 
-        // The player stands where the mission starts him, in the open, the guards about the compound in sight of him.
+        // The player stands where the mission starts him, in the open, the guards about the compound in sight of him, seen at
+        // the cones' full length so that guard 2003, seventy metres off, fights.
         (float Accuracy, int FirstShot) Fight(AiDifficulty difficulty)
         {
             HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
             player.Body = new StandingBody(player.Position);
             Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
-                kit, SoldierTable.Shipped, level, graphs, world, player, difficulty, new IgiRandom(), NullLogger.Instance);
+                kit, FullySeen, level, graphs, world, player, difficulty, new IgiRandom(), NullLogger.Instance);
             float accuracy = 0f;
             for (int tick = 0; tick < 450; tick++)
             {
@@ -285,14 +324,15 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
         kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
 
-        // The player stands where the mission starts him, and guard 2003, seventy metres off across the compound, opens fire.
+        // The player stands where the mission starts him, seen at the cones' full length, and guard 2003, seventy metres off
+        // across the compound, opens fire.
         HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
         player.Body = new StandingBody(player.Position);
         RecordingEvents own = new();
         player.Events = own;
         Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
             kit,
-            SoldierTable.Shipped,
+            FullySeen,
             level,
             NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance),
             Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object()),
@@ -492,4 +532,7 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         LoadedMission mission = new MissionLoader(registry, fileSystem, resources, levelLoader, null, terrainLoader).Load(missionId);
         return (levelRoot, WorldScene.Build(mission, levelRoot, magic), mission.Terrain!, Path.Combine(root, mission.Descriptor.MissionDirectory));
     }
+
+    // The shipped table with the player seen at the cones' full length, for what is tested of the soldiers' fighting.
+    private static SoldierTable FullySeen { get; } = SoldierTable.Shipped with { Visibility = new PlayerVisibility(Minimum: 1f, Maximum: 1f) };
 }
