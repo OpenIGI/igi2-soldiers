@@ -1,3 +1,4 @@
+using OpenIGI.Core.Content;
 using OpenIGI.Core.Diagnostics;
 using OpenIGI.Engine.Tasks;
 using OpenIGI.Engine.Titles;
@@ -33,13 +34,38 @@ public sealed class Igi2SoldiersModTests
     }
 
     [Fact]
-    public void The_manifest_is_for_Project_IGI_and_names_the_mods_assembly()
+    public void The_manifest_is_for_Project_IGI_reads_I_G_I_2_and_names_the_mods_assembly()
     {
         ModManifest manifest = ModManifest.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, ModManifest.FileName)));
         Assert.Equal(ModApi.Version, manifest.ApiVersion);
         Assert.True(manifest.AppliesTo(Core.Titles.GameTitle.Igi1));
         Assert.False(manifest.AppliesTo(Core.Titles.GameTitle.Igi2));
+        Assert.Equal([Core.Titles.GameTitle.Igi2.Id], manifest.RequiresTitleData);
         Assert.Equal(Path.GetFileName(typeof(Igi2SoldiersMod).Assembly.Location), manifest.Assembly);
+    }
+
+    [Fact]
+    public void Its_package_carries_none_of_the_games_assemblies_and_loads_through_the_loader()
+    {
+        string package = Path.Combine(AppContext.BaseDirectory, "Igi2SoldiersPackage");
+        Assert.DoesNotContain(
+            Directory.EnumerateFiles(package, "*.dll", SearchOption.AllDirectories),
+            static file => Path.GetFileName(file) != "OpenIGI.Mods.Igi2Soldiers.dll");
+
+        string mods = Path.Combine(Path.GetTempPath(), "openigi-mods-" + Guid.NewGuid().ToString("N"));
+        string installed = Path.Combine(mods, "igi2soldiers");
+        foreach (string file in Directory.EnumerateFiles(package, "*", SearchOption.AllDirectories))
+        {
+            string to = Path.Combine(installed, Path.GetRelativePath(package, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            File.Copy(file, to);
+        }
+
+        InstalledMod mod = Assert.Single(Modding.Loader.ModLoader.Load(mods).Mods);
+        Assert.Equal("igi2soldiers", mod.Manifest.Id);
+        Assert.NotNull(mod.Code);
+        Igi1Runtime runtime = new();
+        Assert.True(new ModSet([mod]).Extend(runtime).Modules.Count > runtime.Modules.Count);
     }
 
     private static ModSet Mods() =>

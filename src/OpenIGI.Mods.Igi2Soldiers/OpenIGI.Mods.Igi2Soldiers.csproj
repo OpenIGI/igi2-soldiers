@@ -23,4 +23,7 @@
     <ProjectReference Include="..\..\src\Game\OpenIGI.Presentation.Igi2\OpenIGI.Presentation.Igi2.csproj" />
   </ItemGroup>
 
+  <!-- Its package, bin/<config>/<tfm>/mod/, as the launcher installs it. -->
+  <Import Project="..\..\sdk\OpenIGI.Modding.Sdk\build\OpenIGI.Modding.Sdk.targets" />
+
 </Project>
