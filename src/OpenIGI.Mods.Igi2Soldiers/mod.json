@@ -3,7 +3,11 @@
   "name": "I.G.I. 2 soldiers",
   "version": "0.1",
   "apiVersion": 1,
+  "summary": "Project I.G.I.'s missions guarded by I.G.I. 2's soldiers: their bodies, weapons and AI.",
+  "authors": [ "OpenIGI" ],
+  "license": "GPL-3.0-only",
   "titles": [ "igi1" ],
+  "requiresTitleData": [ "igi2" ],
   "assembly": "OpenIGI.Mods.Igi2Soldiers.dll",
   "affectsSimulation": true
 }

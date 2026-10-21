@@ -49,7 +49,7 @@ public sealed class Igi2SoldiersMod : IOpenIgiMod, IOpenIgiPresentationMod
             return;
         }
 
-        _session.Table = SoldierTable.Load(Path.GetDirectoryName(typeof(Igi2SoldiersMod).Assembly.Location) ?? AppContext.BaseDirectory);
+        _session.Table = SoldierTable.Load(builder.Directory);
         builder.AddModule(_session);
         builder.EditLevelSystems<MissionLevelBuild>(systems => systems
             .InsertBefore(MissionSystemNames.Soldiers, new LevelSystem<MissionLevelBuild>(ClaimSystem, _session.Claim))
