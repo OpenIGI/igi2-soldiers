@@ -34,8 +34,9 @@ public sealed class Igi2SoldiersModTests
     [Fact]
     public void I_G_I_2_is_left_as_it_ships()
     {
+        // The mod as installed, its manifest for Project I.G.I. alone.
         Igi2Runtime runtime = new();
-        IGameTitleRuntime modded = Harness().Extend(runtime);
+        IGameTitleRuntime modded = ModHarness.Installed("igi2soldiers").Extend(runtime);
         Assert.Equal(runtime.Modules.Count, modded.Modules.Count);
     }
 

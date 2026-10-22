@@ -7,7 +7,9 @@ using OpenIGI.Engine.Resources;
 using OpenIGI.Engine.Tasks;
 using OpenIGI.Engine.Vfs;
 using OpenIGI.Game.Ai;
+using OpenIGI.Game.Igi1;
 using OpenIGI.Game.Igi1.Ai;
+using OpenIGI.Game.Igi2;
 using OpenIGI.Game.Igi2.Scripting;
 using OpenIGI.Game.Igi2.Soldiers;
 using OpenIGI.Game.Igi2.Systems;
@@ -67,11 +69,14 @@ public sealed class Igi2SoldierPresenterTests(ITestOutputHelper output)
     [Fact]
     public void Project_IGI_draws_the_soldiers_with_one_presenter_for_the_level_and_none_before_they_spawn()
     {
-        ModSet mods = new([new InstalledMod(new ModManifest("igi2soldiers", "I.G.I. 2 soldiers", "1.0", ModApi.Version, []), string.Empty, new Igi2SoldiersMod())]);
+        // For Project I.G.I. alone, as its manifest says; each game configured with it, as a run starts, then drawn.
+        ModSet mods = new([new InstalledMod(new ModManifest("igi2soldiers", "I.G.I. 2 soldiers", "1.0", ModApi.Version, [GameTitle.Igi1.Id]), string.Empty, new Igi2SoldiersMod())]);
+        mods.Extend(new Igi1Runtime());
+        mods.Extend(new Igi2Runtime());
         PresenterRegistry igi1 = new();
         PresenterRegistry igi2 = new();
         Assert.Equal(1, PresentationMods.Apply(mods, GameTitle.Igi1, igi1));
-        PresentationMods.Apply(mods, GameTitle.Igi2, igi2);
+        Assert.Equal(0, PresentationMods.Apply(mods, GameTitle.Igi2, igi2));
 
         Assert.Equal(1, igi1.LevelPresenterCount);
         Assert.Equal(0, igi2.LevelPresenterCount);
