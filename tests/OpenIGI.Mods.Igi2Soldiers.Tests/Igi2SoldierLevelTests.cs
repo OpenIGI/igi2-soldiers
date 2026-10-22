@@ -2,12 +2,7 @@ using OpenIGI.Core.Diagnostics;
 using OpenIGI.Core.Numerics;
 using OpenIGI.Core.Titles;
 using OpenIGI.Engine.Audio;
-using OpenIGI.Engine.Flow;
-using OpenIGI.Engine.Level;
-using OpenIGI.Engine.Resources;
 using OpenIGI.Engine.Tasks;
-using OpenIGI.Engine.Time;
-using OpenIGI.Engine.Vfs;
 using OpenIGI.Formats.Ai;
 using OpenIGI.Game.Ai;
 using OpenIGI.Game.Igi1.Ai;
@@ -22,6 +17,7 @@ using OpenIGI.Game.Igi2.Systems;
 using OpenIGI.Game.Player;
 using OpenIGI.Game.Weapons;
 using OpenIGI.Game.World;
+using OpenIGI.Modding.Testing;
 using OpenIGI.Mods.Igi2Soldiers.Collision;
 using OpenIGI.Mods.Igi2Soldiers.Mapping;
 using OpenIGI.TestSupport;
@@ -518,24 +514,8 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
 
     internal static (LevelTask, WorldScene, TerrainData, string) LoadMission(string root, int missionId)
     {
-        VirtualFileSystem fileSystem = new();
-        fileSystem.RegisterDevice(new LocalFileDevice(root));
-        ResourceRegistry resources = new(fileSystem);
-        GameLoop loop = new(new ManualTimeSource());
-        PlayerTaskTypes.RegisterAll(loop.Types);
-        AiTaskTypes.RegisterAll(loop.Types);
-        loop.Types.Register<ConditionalContainerTask>(ConditionalContainerTask.TypeName);
-        MissionRegistry registry = new();
-        registry.Register(loop.Natives);
-        registry.Scan(fileSystem, resources, loop.Natives);
-        MagicObjectRegistry magic = new();
-        magic.Register(loop.Natives);
-        magic.Load(resources, loop.Natives);
-        TerrainLoader terrainLoader = new(resources, loop.Natives);
-        LevelTask levelRoot = (LevelTask)loop.Tasks.New(loop.Tasks.Root, loop.Types.Get(EngineTaskTypes.Level));
-        LevelLoader levelLoader = new(levelRoot, loop.TaskCommands, loop.Natives, resources);
-        LoadedMission mission = new MissionLoader(registry, fileSystem, resources, levelLoader, null, terrainLoader).Load(missionId);
-        return (levelRoot, WorldScene.Build(mission, levelRoot, magic), mission.Terrain!, Path.Combine(root, mission.Descriptor.MissionDirectory));
+        Igi1Mission mission = MissionFixture.Igi1(missionId, root);
+        return (mission.Level, mission.Scene, mission.Loaded.Terrain!, mission.Directory);
     }
 
     // The shipped table with the player seen at the cones' full length, for what is tested of the soldiers' fighting.

@@ -26,8 +26,10 @@ folder into the launcher's `<Library>/mods/local/`, where the Mods page lists it
 IGI_GAME_PATH=... IGI2_GAME_PATH=... dotnet test -c Release --no-build OpenIGI.Mods.Igi2Soldiers.slnx
 ```
 
-The tests need a checkout of OpenIGI, because they use the game's own test support and mod loader. A test that needs
-the retail data of either game skips itself when that game's path isn't set.
+The tests are built with the mod's own SDK (`<ModTests>true</ModTests>`), against `OpenIGI.Modding.Testing`: the mod is
+installed beside them as the launcher installs it, `ModHarness` configures it as the game does, and `MissionFixture`
+loads Project I.G.I.'s missions headless. A test that needs the retail data of either game skips itself when that game's
+path isn't set.
 
 ## Publishing
 
