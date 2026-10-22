@@ -6,6 +6,7 @@
     <LangVersion>preview</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+
     <NuGetAudit>false</NuGetAudit>
 
     <!-- The game's own hygiene: no warnings, XML docs on all public members (CS1591). -->
@@ -20,20 +21,6 @@
     <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
-  </PropertyGroup>
-
-  <!--
-    Where the game is built from. A mod builds against OpenIGI either way: from a checkout of its source, or from the
-    OpenIGI.Modding.Sdk package, which carries the same assemblies at a released version.
-
-    The checkout is the one OPENIGI_ROOT names, or else an igi-remastered folder beside this repository's. With neither,
-    the package is restored instead (Directory.Packages.props pins its version). The tests need the checkout: they run
-    against the game's own test support and mod loader, which no package ships.
-  -->
-  <PropertyGroup>
-    <OpenIgiRoot Condition="'$(OpenIgiRoot)' == '' and '$(OPENIGI_ROOT)' != ''">$([MSBuild]::EnsureTrailingSlash('$(OPENIGI_ROOT)'))</OpenIgiRoot>
-    <OpenIgiRoot Condition="'$(OpenIgiRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\igi-remastered\OpenIGI.slnx')">$(MSBuildThisFileDirectory)..\igi-remastered\</OpenIgiRoot>
-    <OpenIgiFromSource Condition="'$(OpenIgiRoot)' != ''">true</OpenIgiFromSource>
   </PropertyGroup>
 
   <ItemGroup>

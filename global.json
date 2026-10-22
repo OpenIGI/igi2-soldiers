@@ -2,5 +2,8 @@
   "sdk": {
     "version": "10.0.301",
     "rollForward": "latestFeature"
+  },
+  "msbuild-sdks": {
+    "OpenIGI.Modding.Sdk": "0.5.0"
   }
 }

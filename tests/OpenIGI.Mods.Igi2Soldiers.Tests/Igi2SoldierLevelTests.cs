@@ -2,12 +2,7 @@ using OpenIGI.Core.Diagnostics;
 using OpenIGI.Core.Numerics;
 using OpenIGI.Core.Titles;
 using OpenIGI.Engine.Audio;
-using OpenIGI.Engine.Flow;
-using OpenIGI.Engine.Level;
-using OpenIGI.Engine.Resources;
 using OpenIGI.Engine.Tasks;
-using OpenIGI.Engine.Time;
-using OpenIGI.Engine.Vfs;
 using OpenIGI.Formats.Ai;
 using OpenIGI.Game.Ai;
 using OpenIGI.Game.Igi1.Ai;
@@ -15,13 +10,16 @@ using OpenIGI.Game.Igi1.World;
 using OpenIGI.Game.Igi2.Ai;
 using OpenIGI.Game.Igi2.Ai.Runtime;
 using OpenIGI.Game.Igi2.Collision;
+using OpenIGI.Game.Igi2.Detection;
+using OpenIGI.Game.Igi2.Scripting;
 using OpenIGI.Game.Igi2.Soldiers;
+using OpenIGI.Game.Igi2.Systems;
 using OpenIGI.Game.Player;
 using OpenIGI.Game.Weapons;
 using OpenIGI.Game.World;
+using OpenIGI.Modding.Testing;
 using OpenIGI.Mods.Igi2Soldiers.Collision;
 using OpenIGI.Mods.Igi2Soldiers.Mapping;
-using OpenIGI.Mods.Igi2Soldiers.Scripts;
 using OpenIGI.TestSupport;
 using Xunit;
 using Xunit.Abstractions;
@@ -40,12 +38,12 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         Dictionary<int, GraphFile> graphs = NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance);
         HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
 
-        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
-        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        Igi2GuestContent kit = Igi2GuestContent.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped.Models);
+        kit.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, kit.Scripts));
         Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object());
 
         RecordingAudio audio = new();
-        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+        Igi2HostedLevel soldiers = Igi2SoldierLevel.Spawn(
             kit, SoldierTable.Shipped, level, graphs, world, player, AiDifficulty.Normal, new IgiRandom(), NullLogger.Instance, audio: audio);
         Assert.Contains(kit.SoundBanks, static bank => bank.EndsWith("/ENGLISH", StringComparison.Ordinal));
 
@@ -79,7 +77,7 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         // In the mission's level: its shots meet the soldiers, its blasts and AI events reach their tasks, and a Project I.G.I.
         // task dies with the soldier that stands for it.
         MissionState mission = new();
-        soldiers.JoinTo(mission, level);
+        soldiers.JoinTo(mission, level, SoldierTable.Shipped.DamageFromIgi1);
         Assert.Equal(mapped, mission.Bodies.Sources.Single().Bodies().Count());
         Assert.Equal(mapped, mission.Joined.ExplosionTargets.Count);
         // Every soldier, and the player's visibility, which hears the level's broadcasts for the player's loud shots.
@@ -112,10 +110,10 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         (LevelTask level, WorldScene scene, TerrainData terrain, string missionDirectory) = LoadMission(igi1, 4);
         Dictionary<int, GraphFile> graphs = NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance);
         HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
-        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
-        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        Igi2GuestContent kit = Igi2GuestContent.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped.Models);
+        kit.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, kit.Scripts));
         Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object());
-        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+        Igi2HostedLevel soldiers = Igi2SoldierLevel.Spawn(
             kit, SoldierTable.Shipped, level, graphs, world, player, AiDifficulty.Normal, new IgiRandom(), NullLogger.Instance);
 
         // Mission 4's GuardGenerator_600 generates while "1", four lives at most.
@@ -170,10 +168,10 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         Dictionary<int, GraphFile> graphs = NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance);
         HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
 
-        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
-        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        Igi2GuestContent kit = Igi2GuestContent.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped.Models);
+        kit.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, kit.Scripts));
         Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object());
-        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+        Igi2HostedLevel soldiers = Igi2SoldierLevel.Spawn(
             kit, SoldierTable.Shipped, level, graphs, world, player, AiDifficulty.Normal, new IgiRandom(), NullLogger.Instance);
         for (int tick = 0; tick < 30; tick++)
         {
@@ -236,11 +234,11 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         string igi1 = GameData.RequireRoot();
         string missionDirectory = Path.Combine(igi1, "missions", "location0", "level1");
         (LevelTask level, WorldScene scene, TerrainData terrain) = Load(igi1);
-        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
-        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        Igi2GuestContent kit = Igi2GuestContent.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped.Models);
+        kit.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, kit.Scripts));
         HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
         player.Body = new StandingBody(player.Position);
-        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+        Igi2HostedLevel soldiers = Igi2SoldierLevel.Spawn(
             kit,
             SoldierTable.Shipped,
             level,
@@ -263,7 +261,7 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
                 guard => ((Igi2HumanAi)guard.Mind!).Detection.Enemies.Exists(static enemy => enemy.HasBeenFullVisible));
         }
 
-        float light = Assert.IsType<float>(Detection.Igi1GroundLight.Of(terrain, level)?.At(player.Position));
+        float light = Assert.IsType<float>(Igi1GroundLight.Of(terrain, level)?.LightAt(player.Position));
         Assert.InRange(light, 0.75f, 0.76f);
         Assert.Equal(MathF.Pow(light * 0.5f, 0.8f), player.VisibilityFactor, 5);
         soldiers.Leave();
@@ -277,8 +275,8 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         string missionDirectory = Path.Combine(igi1, "missions", "location0", "level1");
         (LevelTask level, WorldScene scene, TerrainData terrain) = Load(igi1);
         Dictionary<int, GraphFile> graphs = NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance);
-        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
-        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        Igi2GuestContent kit = Igi2GuestContent.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped.Models);
+        kit.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, kit.Scripts));
         Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object());
 
         // The player stands where the mission starts him, in the open, the guards about the compound in sight of him, seen at
@@ -287,7 +285,7 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         {
             HumanPlayerTask player = PlayerSpawn.FindGameplayTask(level)!;
             player.Body = new StandingBody(player.Position);
-            Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+            Igi2HostedLevel soldiers = Igi2SoldierLevel.Spawn(
                 kit, FullySeen, level, graphs, world, player, difficulty, new IgiRandom(), NullLogger.Instance);
             float accuracy = 0f;
             for (int tick = 0; tick < 450; tick++)
@@ -324,8 +322,8 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         string igi1 = GameData.RequireRoot();
         string missionDirectory = Path.Combine(igi1, "missions", "location0", "level1");
         (LevelTask level, WorldScene scene, TerrainData terrain) = Load(igi1);
-        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
-        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
+        Igi2GuestContent kit = Igi2GuestContent.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped.Models);
+        kit.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, kit.Scripts));
 
         // The player stands where the mission starts him, seen at the cones' full length, and guard 2003, seventy metres off
         // across the compound, opens fire.
@@ -333,7 +331,7 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         player.Body = new StandingBody(player.Position);
         RecordingEvents own = new();
         player.Events = own;
-        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+        Igi2HostedLevel soldiers = Igi2SoldierLevel.Spawn(
             kit,
             FullySeen,
             level,
@@ -365,9 +363,9 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         (LevelTask level, WorldScene scene, TerrainData terrain) = Load(igi1);
         int claimed = Igi2SoldierLevel.Claim(level, SoldierTable.Shipped);
         Dictionary<int, GraphFile> graphs = NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance);
-        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
-        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
-        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+        Igi2GuestContent kit = Igi2GuestContent.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped.Models);
+        kit.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, kit.Scripts));
+        Igi2HostedLevel soldiers = Igi2SoldierLevel.Spawn(
             kit,
             SoldierTable.Shipped,
             level,
@@ -420,12 +418,12 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
 
         // Project I.G.I. moves the trains: here, every placement stands where it was built until it is moved by hand.
         Dictionary<WorldPlacement, (Vector3d, Matrix3f)> moved = [];
-        Igi1Carriers carriers = new(solids, p => moved.TryGetValue(p, out (Vector3d At, Matrix3f Turn) pose)
+        Igi2PlacedCarriers carriers = new(solids, p => moved.TryGetValue(p, out (Vector3d At, Matrix3f Turn) pose)
             ? (true, pose.At, pose.Turn)
             : (true, p.Position, p.Orientation));
-        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
-        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
-        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+        Igi2GuestContent kit = Igi2GuestContent.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped.Models);
+        kit.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, kit.Scripts));
+        Igi2HostedLevel soldiers = Igi2SoldierLevel.Spawn(
             kit,
             SoldierTable.Shipped,
             level,
@@ -516,26 +514,10 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
 
     internal static (LevelTask, WorldScene, TerrainData, string) LoadMission(string root, int missionId)
     {
-        VirtualFileSystem fileSystem = new();
-        fileSystem.RegisterDevice(new LocalFileDevice(root));
-        ResourceRegistry resources = new(fileSystem);
-        GameLoop loop = new(new ManualTimeSource());
-        PlayerTaskTypes.RegisterAll(loop.Types);
-        AiTaskTypes.RegisterAll(loop.Types);
-        loop.Types.Register<ConditionalContainerTask>(ConditionalContainerTask.TypeName);
-        MissionRegistry registry = new();
-        registry.Register(loop.Natives);
-        registry.Scan(fileSystem, resources, loop.Natives);
-        MagicObjectRegistry magic = new();
-        magic.Register(loop.Natives);
-        magic.Load(resources, loop.Natives);
-        TerrainLoader terrainLoader = new(resources, loop.Natives);
-        LevelTask levelRoot = (LevelTask)loop.Tasks.New(loop.Tasks.Root, loop.Types.Get(EngineTaskTypes.Level));
-        LevelLoader levelLoader = new(levelRoot, loop.TaskCommands, loop.Natives, resources);
-        LoadedMission mission = new MissionLoader(registry, fileSystem, resources, levelLoader, null, terrainLoader).Load(missionId);
-        return (levelRoot, WorldScene.Build(mission, levelRoot, magic), mission.Terrain!, Path.Combine(root, mission.Descriptor.MissionDirectory));
+        Igi1Mission mission = MissionFixture.Igi1(missionId, root);
+        return (mission.Level, mission.Scene, mission.Loaded.Terrain!, mission.Directory);
     }
 
     // The shipped table with the player seen at the cones' full length, for what is tested of the soldiers' fighting.
-    private static SoldierTable FullySeen { get; } = SoldierTable.Shipped with { Visibility = new PlayerVisibility(Minimum: 1f, Maximum: 1f) };
+    private static SoldierTable FullySeen { get; } = SoldierTable.Shipped with { Visibility = new Igi2VisibilityTuning(Minimum: 1f, Maximum: 1f) };
 }

@@ -9,3 +9,6 @@ TestResults/
 
 # Throwaway probes against the game data: never committed.
 Scratch*.cs
+
+# The SDK packed from a checkout of OpenIGI, until the pinned version is on nuget.org (sdk-packages/README.md).
+sdk-packages/*.nupkg

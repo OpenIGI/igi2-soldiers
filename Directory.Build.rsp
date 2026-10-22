@@ -1,3 +1,0 @@
-# The game's projects are not in this repository's solution: every one of them, and every reference between
-# them, builds in the configuration asked for rather than falling back to Debug.
--p:ShouldUnsetParentConfigurationAndPlatform=false

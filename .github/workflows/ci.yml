@@ -37,6 +37,10 @@ jobs:
         with:
           global-json-file: igi2-soldiers/global.json
 
+      # The SDK the mod is built with, packed from that checkout: the version global.json pins is not on nuget.org yet.
+      - name: Pack the SDK
+        run: bash igi-remastered/tools/release/pack-modding-sdk.sh 0.5.0 "$GITHUB_WORKSPACE/igi2-soldiers/sdk-packages"
+
       - name: Build
         working-directory: igi2-soldiers
         run: dotnet build OpenIGI.Mods.Igi2Soldiers.slnx --configuration Release

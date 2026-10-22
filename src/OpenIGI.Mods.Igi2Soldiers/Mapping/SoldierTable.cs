@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using OpenIGI.Game.Igi2.Detection;
 
 namespace OpenIGI.Mods.Igi2Soldiers.Mapping;
 
@@ -15,17 +16,6 @@ public sealed record SoldierMapping(string AiType, string AnimType, string Weapo
     /// <returns>The model's name.</returns>
     public string ModelFor(int taskId) => Models[(int)((uint)taskId % (uint)Models.Count)];
 }
-
-/// <summary>How well the I.G.I. 2 soldiers see the Project I.G.I. player, as I.G.I. 2 measures its own player.</summary>
-/// <param name="Gamma">What half the light is raised to, a level's <c>Visibility Gamma</c>.</param>
-/// <param name="Minimum">The least the factor comes to, <c>Visibility Minimum</c>.</param>
-/// <param name="Maximum">The most it comes to, <c>Visibility Maximum</c>.</param>
-/// <param name="Light">
-/// The light the player stands in where the level bakes none under its feet, on I.G.I. 2's scale: one shows a surface as bright
-/// as its texture, Project I.G.I.'s brightest; elsewhere the level's own lightmap under the player's feet is read.
-/// </param>
-/// <remarks>The defaults are I.G.I. 2's first mission's player: 0.8, 0.2 and 0.95.</remarks>
-public sealed record PlayerVisibility(float Gamma = 0.8f, float Minimum = 0.2f, float Maximum = 0.95f, float Light = 1f);
 
 /// <summary>The mod's mapping table: which Project I.G.I. soldiers become which I.G.I. 2 soldiers, and how their damage carries.</summary>
 /// <param name="Soldiers">
@@ -51,10 +41,13 @@ public sealed record SoldierTable(
     SoldierMapping? Default,
     float DamageFromIgi1 = 1f,
     float DamageFromIgi2 = 1f,
-    PlayerVisibility? Visibility = null)
+    Igi2VisibilityTuning? Visibility = null)
 {
     /// <summary>The name the table ships under, beside the mod's assembly, where a player's own copy overrides it.</summary>
     public const string FileName = "igi2soldiers.json";
+
+    /// <summary>Gets every model the table dresses a soldier in.</summary>
+    public IEnumerable<string> Models => Soldiers.Values.Append(Default).OfType<SoldierMapping>().SelectMany(static m => m.Models).Distinct();
 
     /// <summary>Gets the table the mod ships with.</summary>
     public static SoldierTable Shipped { get; } = Read(ShippedJson());
