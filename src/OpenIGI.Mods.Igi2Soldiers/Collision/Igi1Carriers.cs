@@ -1,7 +1,6 @@
 using OpenIGI.Core.Numerics;
 using OpenIGI.Engine.Tasks;
 using OpenIGI.Game.Igi2.Collision;
-using OpenIGI.Game.Igi2.Interaction;
 using OpenIGI.Game.World;
 
 namespace OpenIGI.Mods.Igi2Soldiers.Collision;
@@ -41,14 +40,14 @@ public sealed class Igi1Carriers
     /// <summary>Gets a model's solid as a parent its riders are held relative to, or <see langword="null"/> when it has none.</summary>
     /// <param name="model">The model's task.</param>
     /// <returns>The parent.</returns>
-    public IIgi2AttachParent? Carrier(GameTask model)
+    public IAttachParent? Carrier(GameTask model)
     {
         ArgumentNullException.ThrowIfNull(model);
         foreach ((WorldPlacement placement, Igi2RigidObject solid) in _solids)
         {
             if (ReferenceEquals(placement.Owner, model) && !placement.IsAttached)
             {
-                return new Riding(solid);
+                return solid;
             }
         }
 
@@ -77,11 +76,4 @@ public sealed class Igi1Carriers
         }
     }
 
-    // A solid as the parent of what rides it.
-    private sealed class Riding(Igi2RigidObject solid) : IIgi2AttachParent
-    {
-        public Vector3d AttachPosition => solid.Position;
-
-        public IReadOnlyList<float> AttachOrientation => solid.Orientation;
-    }
 }

@@ -1,5 +1,6 @@
 using OpenIGI.Formats;
 using OpenIGI.Formats.World;
+using OpenIGI.Game.Igi1.World;
 using OpenIGI.Game.Igi2.Collision;
 using OpenIGI.Game.World;
 

@@ -5,19 +5,14 @@ using OpenIGI.Engine.Tasks;
 using OpenIGI.Formats.Ai;
 using OpenIGI.Game.Ai;
 using OpenIGI.Game.Igi1.Ai;
+using OpenIGI.Game.Igi1.World;
 using OpenIGI.Game.Igi2.Ai;
 using OpenIGI.Game.Igi2.Ai.Runtime;
 using OpenIGI.Game.Igi2.Audio;
 using OpenIGI.Game.Igi2.Collision;
-using OpenIGI.Game.Igi2.Detection;
 using OpenIGI.Game.Igi2.Flow;
-using OpenIGI.Game.Igi2.Humans;
-using OpenIGI.Game.Igi2.Interaction;
-using OpenIGI.Game.Igi2.Player;
-using OpenIGI.Game.Igi2.Scripting;
 using OpenIGI.Game.Igi2.Soldiers;
-using OpenIGI.Game.Igi2.Weapons;
-using OpenIGI.Game.Igi2.World;
+using OpenIGI.Game.Igi2.Systems;
 using OpenIGI.Game.Level;
 using OpenIGI.Game.Player;
 using OpenIGI.Game.Weapons;
@@ -46,6 +41,9 @@ namespace OpenIGI.Mods.Igi2Soldiers;
 /// </remarks>
 public sealed class Igi2SoldierLevel
 {
+    /// <summary>The I.G.I. 2 material row a human is, which the player's body reads as to the soldiers' rounds and sight.</summary>
+    public const int HumanMaterial = 21;
+
     private readonly Igi2LevelRun _run;
     private int _tick;
 
@@ -194,35 +192,13 @@ public sealed class Igi2SoldierLevel
         ArgumentNullException.ThrowIfNull(player);
         ArgumentNullException.ThrowIfNull(random);
         IOpenIgiLogger log = logger ?? NullLogger.Instance;
-        Engine.Flow.GameLoop guest = kit.Guest.Loop;
-        Engine.Titles.IServiceCatalog services = kit.Guest.Session.Services;
-        Igi2ScriptFunctions functions = services.Require<Igi2ScriptFunctions>();
-
-        LevelTask root = (LevelTask)guest.Tasks.New(guest.Tasks.Root, guest.Types.Get(EngineTaskTypes.Level));
-        GameTask dynamic = guest.Tasks.New(root, guest.Types.Get(EngineTaskTypes.Dynamic));
+        Igi2GuestLevel guest = Igi2GuestLevel.Open(kit.Guest);
         Dictionary<Igi2HumanSoldierTask, HumanTask> handedOver = [];
         Dictionary<HumanTask, Igi2AiSquadTask> squads = [];
-        int spare = 4095;
-
-        // Each guest task keeps the Project I.G.I. task's id when it has one the guest has not given out, else the next spare id
-        // from the top: a mind finds its script by its id, and one without an id would run none.
-        void Bind(GameTask task, int preferred)
-        {
-            if (preferred >= 0 && guest.Tasks.FromId(preferred) is null && guest.Tasks.TryBindId(preferred, task))
-            {
-                return;
-            }
-
-            while (guest.Tasks.FromId(spare) is not null)
-            {
-                spare--;
-            }
-
-            guest.Tasks.TryBindId(spare--, task);
-        }
 
         // The lives of each generator's template, beyond the first: a GuardGenerator (0x487EE0) clones its template as often as
-        // it may, so every life it may spawn is made here, out of the world until the generator puts it in.
+        // it may, so every life it may spawn is made here, out of the world until the generator puts it in. Each soldier and
+        // mind keeps its Project I.G.I. task's id where it can.
         Dictionary<HumanTask, List<(Igi2AiSquadTask Squad, Igi2HumanSoldierTask Soldier)>> lives = [];
         foreach (HumanSoldierTask igi1 in level.Descendants().OfType<HumanSoldierTask>())
         {
@@ -235,19 +211,15 @@ public sealed class Igi2SoldierLevel
             int count = igi1.Parent is GuardGeneratorTask generator ? Math.Max(1, generator.MaxSpawns) : 1;
             for (int life = 0; life < count; life++)
             {
-                Igi2AiSquadTask squad = (Igi2AiSquadTask)guest.Tasks.New(dynamic, guest.Types.Get(Igi2AiSquadTask.TypeName));
-                Bind(squad, -1);
-                Igi2HumanSoldierTask soldier = (Igi2HumanSoldierTask)guest.Tasks.New(squad, guest.Types.Get(Igi2HumanSoldierTask.TypeName));
-                Bind(soldier, life == 0 ? igi1.Id : -1);
+                Igi2AiSquadTask squad = guest.AddSquad();
+                Igi2HumanSoldierTask soldier = guest.AddSoldier(squad, life == 0 ? igi1.Id : -1);
                 soldier.Position = igi1.Position;
                 soldier.Gamma = igi1.Gamma;
                 soldier.Team = igi1.Team;
                 soldier.Model = mapping.ModelFor(igi1.Id);
                 soldier.WeaponScript = mapping.Weapon;
                 soldier.BoneHierarchy = 1;
-                Igi2HumanAiTask ai = (Igi2HumanAiTask)guest.Tasks.New(soldier, guest.Types.Get(Igi2HumanAiTask.TypeName));
-                Bind(ai, life == 0 ? mind?.Id ?? -1 : -1);
-
+                Igi2HumanAiTask ai = guest.AddMind(soldier, life == 0 ? mind?.Id ?? -1 : -1);
                 ai.AiTypeName = mapping.AiType;
                 ai.AnimTypeName = mapping.AnimType;
                 ai.GraphId = mind?.GraphId ?? -1;
@@ -266,77 +238,30 @@ public sealed class Igi2SoldierLevel
             igi1.Driver = GameTitle.Igi2;
         }
 
-        Igi2Sounds sounds = new(kit.SoundDefinitions, audio);
-        SoldierBodies soldiers = Igi2Gameplay.SpawnSoldiers(
-            root,
-            services,
-            world,
-            kit.Clips,
-            kit.Models,
-            services.TryGet(out Igi2PlayerTuning? tuning) ? tuning : null,
-            sounds,
-            random,
-            difficulty,
-            natives: guest.Natives,
-            functions: functions);
-
-        // The player is a body I.G.I. 2's rounds strike and its soldiers' sight is stopped by, at I.G.I. 2's odds of a round striking.
-        world.AddCollider(new Collision.Igi1HumanCollider(player));
+        // The player is a body I.G.I. 2's rounds strike and its soldiers' sight is stopped by, at I.G.I. 2's odds of a round
+        // striking: it joins the guest's world after the soldiers' bodies.
         Collision.Igi2RoundOdds odds = new(player.Events, random, table.DamageFromIgi2);
         player.Events = odds;
 
         Igi2SoldierLevel? built = null;
-        Igi2DetectionWorld detection = new(world, services.Require<Igi2GameMaterials>())
-        {
-            FlowTicks = () => built?._tick ?? 0,
-            LevelTick = () => built?._tick ?? 0,
-        };
-        detection.Detectables.Add(player);
-        foreach (Igi2HumanSoldier body in soldiers.Bodies)
-        {
-            detection.Detectables.Add(body);
-            Igi2Gameplay.SeeThrough(body, detection);
-        }
-
-        // HumanSoldier_UpdateInternalDataAfterLoadHandler: a living soldier of team 1 is no business of the detectors; it is listed
-        // again as it dies.
-        foreach (Igi2HumanSoldier body in soldiers.Bodies)
-        {
-            if (body is { Team: 1, IsDead: false })
-            {
-                detection.Remove(body);
-            }
-        }
-
-        Igi2AiGraphs placed = Igi2AiGraphs.Of(graphs.Select(entry =>
-        {
-            // A graph on a train is held in the train's frame and rides it.
-            IIgi2AttachParent? carrier = level is LevelTask placed && NavGraphs.CarrierOf(placed, entry.Key) is { } model
-                ? carriers?.Carrier(model)
-                : null;
-            Igi2AiGraph walked = Igi2AiGraph.From(entry.Value, text => Igi2LineScript.Evaluate(text, guest.Natives, functions), carrier);
-            walked.Id = entry.Key;
-            return walked;
-        }));
-        Igi2AiWorld mindWorld = Igi2LevelAi.Build(new Igi2LevelAiSetup(
-            root,
-            kit.Guest.Resources,
-            guest.Natives,
-            functions,
-            player,
-            [.. soldiers.Bodies.Cast<Igi2Human>()],
+        Igi2Sounds sounds = new(kit.SoundDefinitions, audio);
+        Igi2GuestLevelRun started = guest.Start(new Igi2GuestLevelStart(
+            world,
+            kit.Clips,
+            kit.Models,
+            sounds,
             random,
+            difficulty,
+            player,
             () => built?._tick ?? 0)
         {
-            Detection = detection,
-            FireTaskTypes = services.TryGet(out Igi2HumanWeapons? armoury) ? armoury.FireTaskTypes : null,
-            Config = services.TryGet(out Igi2HumanAiConfig? config) ? config : null,
-            Difficulty = (int)difficulty,
+            Colliders = [new Igi1HumanLineCollider(player, Igi2CollisionWorld.HumanGroup, HumanMaterial)],
+            Graphs = graphs,
+
+            // A graph on a train is held in the train's frame and rides it.
+            CarrierOf = id => level is LevelTask placed && NavGraphs.CarrierOf(placed, id) is { } model ? carriers?.Carrier(model) : null,
             Logger = log,
-            World = services.Require<Igi2AiWorld>(),
-            Graphs = placed,
         });
-        Igi2Gameplay.HearAiEvents(soldiers.Bodies, () => mindWorld);
 
         Dictionary<HumanTask, Igi2HumanSoldier> bodies = [];
         foreach ((Igi2HumanSoldierTask task, HumanTask igi1) in handedOver)
@@ -347,8 +272,14 @@ public sealed class Igi2SoldierLevel
             }
         }
 
-        Igi2LevelRun run = new(root, guest.Natives, functions) { Dynamic = new Igi2DynamicTasks() };
-        built = new Igi2SoldierLevel(guest.Tasks, root, run, soldiers, mindWorld, bodies, squads) { _carriers = carriers, _player = player, _odds = odds, _sounds = sounds, _damageFromIgi1 = table.DamageFromIgi1 };
+        built = new Igi2SoldierLevel(kit.Guest.Loop.Tasks, guest.Root, started.Run, started.Soldiers, started.Ai, bodies, squads)
+        {
+            _carriers = carriers,
+            _player = player,
+            _odds = odds,
+            _sounds = sounds,
+            _damageFromIgi1 = table.DamageFromIgi1,
+        };
 
         // The soldiers see the player as I.G.I. 2 sees its own, not at their cones' full length -- from their first look.
         if (player is not null)

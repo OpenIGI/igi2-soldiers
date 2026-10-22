@@ -6,8 +6,8 @@ using OpenIGI.Engine.Tasks;
 using OpenIGI.Engine.Time;
 using OpenIGI.Engine.Vfs;
 using OpenIGI.Formats;
-using OpenIGI.Game.Igi1.World;
 using OpenIGI.Game.Igi2.Collision;
+using OpenIGI.Game.Physics;
 using OpenIGI.Game.World;
 using OpenIGI.Mods.Igi2Soldiers.Collision;
 using OpenIGI.TestSupport;
@@ -42,10 +42,10 @@ public sealed class Igi1CollisionWorldTests
                     continue;
                 }
 
-                Igi2LineTrace trace = new(1);
+                WorldLineTrace trace = new(1);
                 trace.Starts[0] = new Vector3d(x, y, expected.Height + 8192.0);
                 world.NextZ(trace, [-16384.0], Igi2CollisionWorld.TerrainGroup);
-                Igi2Intersection hit = trace.Intersections[0];
+                WorldIntersection hit = trace.Intersections[0];
                 Assert.True(hit.IsHit);
                 Assert.Equal(expected.Height, hit.Position.Z, 1.0);
                 compared++;
@@ -72,11 +72,11 @@ public sealed class Igi1CollisionWorldTests
             Vector3d to = new(centre.X + reach, centre.Y + 7.0, centre.Z + 1024.0);
 
             bool expected = index.TryCast(from, to, out WorldRayHit own);
-            Igi2LineTrace trace = new(1);
+            WorldLineTrace trace = new(1);
             trace.Starts[0] = from;
             trace.Ends[0] = to;
             world.TraceLines(trace, Igi2RigidObject.RigidGroup);
-            Igi2Intersection hit = trace.Intersections[0];
+            WorldIntersection hit = trace.Intersections[0];
             Assert.Equal(expected, hit.IsHit);
             if (expected)
             {
