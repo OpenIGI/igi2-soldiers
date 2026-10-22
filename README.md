@@ -6,20 +6,19 @@ Project I.G.I., and the launcher's Mods page installs it from the community inde
 
 ## Building
 
-The mod builds against OpenIGI in one of two ways:
-
-- **From source.** Point `OPENIGI_ROOT` at a checkout of OpenIGI, or clone it as `igi-remastered` next to this
-  repository. The mod then references the game's own projects, and builds in the configuration you ask for.
-- **From a release.** With no checkout found, the build restores the `OpenIGI.Modding.Sdk` package at the version pinned in
-  `Directory.Packages.props`. The package carries the same assemblies.
+The project is built with `OpenIGI.Modding.Sdk`, the project SDK `global.json` pins. It builds against OpenIGI's source
+when a checkout is to hand -- the one `OPENIGI_ROOT` names, or `igi-remastered` beside this repository -- and against the
+SDK's packages otherwise. Until the pinned version is on nuget.org, pack it from the checkout once into `sdk-packages/`
+(see its README):
 
 ```sh
+../igi-remastered/tools/release/pack-modding-sdk.sh 0.5.0 sdk-packages
 dotnet build -c Release OpenIGI.Mods.Igi2Soldiers.slnx
 ```
 
-Every build writes the installable package, the folder the launcher puts in place, to
-`src/OpenIGI.Mods.Igi2Soldiers/bin/Release/net10.0/mod/`. To try it in the game, copy that folder into the launcher's
-`<Library>/mods/local/`, where the Mods page lists it as a local mod.
+The mod's `mod.json` is written from the project's properties, and every build writes the installable package, the folder
+the launcher puts in place, to `src/OpenIGI.Mods.Igi2Soldiers/bin/Release/net10.0/mod/`. To try it in the game, copy that
+folder into the launcher's `<Library>/mods/local/`, where the Mods page lists it as a local mod.
 
 ## Testing
 

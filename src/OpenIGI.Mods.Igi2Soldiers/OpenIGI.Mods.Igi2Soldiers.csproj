@@ -1,35 +1,21 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="OpenIGI.Modding.Sdk">
 
-  <!-- A mod: Project I.G.I.'s missions spawn I.G.I. 2's soldiers, which run I.G.I. 2's AI. -->
+  <!-- A mod: Project I.G.I.'s missions spawn I.G.I. 2's soldiers, which run I.G.I. 2's AI. Its mod.json is written from these. -->
   <PropertyGroup>
     <AssemblyName>OpenIGI.Mods.Igi2Soldiers</AssemblyName>
     <RootNamespace>OpenIGI.Mods.Igi2Soldiers</RootNamespace>
+    <ModId>igi2soldiers</ModId>
+    <ModName>I.G.I. 2 soldiers</ModName>
+    <Version>0.1.0</Version>
+    <ModSummary>Project I.G.I.'s missions guarded by I.G.I. 2's soldiers: their bodies, weapons and AI.</ModSummary>
+    <Authors>OpenIGI</Authors>
+    <ModTitles>igi1</ModTitles>
+    <ModRequiresTitleData>igi2</ModRequiresTitleData>
   </PropertyGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Mapping\igi2soldiers.json" LogicalName="igi2soldiers.json" />
-    <None Include="mod.json" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
-  <ItemGroup>
     <InternalsVisibleTo Include="OpenIGI.Mods.Igi2Soldiers.Tests" />
   </ItemGroup>
-
-  <!-- Against a checkout of the game (Directory.Build.props): its projects, and the SDK's package build from beside them. -->
-  <ItemGroup Condition="'$(OpenIgiFromSource)' == 'true'">
-    <ProjectReference Include="$(OpenIgiRoot)src\Engine\OpenIGI.Modding\OpenIGI.Modding.csproj" />
-    <ProjectReference Include="$(OpenIgiRoot)src\Game\OpenIGI.Game.Igi1\OpenIGI.Game.Igi1.csproj" />
-    <ProjectReference Include="$(OpenIgiRoot)src\Game\OpenIGI.Game.Igi2\OpenIGI.Game.Igi2.csproj" />
-    <ProjectReference Include="$(OpenIgiRoot)src\Engine\OpenIGI.Modding.Presentation\OpenIGI.Modding.Presentation.csproj" />
-    <ProjectReference Include="$(OpenIgiRoot)src\Game\OpenIGI.Presentation.Igi2\OpenIGI.Presentation.Igi2.csproj" />
-  </ItemGroup>
-
-  <!-- Against a release of it: the SDK package brings the same assemblies, and the package build with them. -->
-  <ItemGroup Condition="'$(OpenIgiFromSource)' != 'true'">
-    <PackageReference Include="OpenIGI.Modding.Sdk" />
-  </ItemGroup>
-
-  <!-- Its package, bin/<config>/<tfm>/mod/, as the launcher installs it. -->
-  <Import Project="$(OpenIgiRoot)sdk\OpenIGI.Modding.Sdk\build\OpenIGI.Modding.Sdk.targets" Condition="'$(OpenIgiFromSource)' == 'true'" />
 
 </Project>

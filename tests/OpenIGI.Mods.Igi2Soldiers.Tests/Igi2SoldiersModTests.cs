@@ -36,7 +36,8 @@ public sealed class Igi2SoldiersModTests
     [Fact]
     public void The_manifest_is_for_Project_IGI_reads_I_G_I_2_and_names_the_mods_assembly()
     {
-        ModManifest manifest = ModManifest.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, ModManifest.FileName)));
+        // Written from the project's properties into the package the launcher installs.
+        ModManifest manifest = ModManifest.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Igi2SoldiersPackage", ModManifest.FileName)));
         Assert.Equal(ModApi.Version, manifest.ApiVersion);
         Assert.True(manifest.AppliesTo(Core.Titles.GameTitle.Igi1));
         Assert.False(manifest.AppliesTo(Core.Titles.GameTitle.Igi2));

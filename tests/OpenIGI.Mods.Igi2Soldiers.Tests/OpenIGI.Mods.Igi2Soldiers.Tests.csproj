@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <!-- The tests run against the game's own test support and mod loader, which no package ships. -->
-  <Target Name="RequireOpenIgiCheckout" BeforeTargets="ResolveProjectReferences;Build" Condition="'$(OpenIgiFromSource)' != 'true'">
+  <Target Name="RequireOpenIgiCheckout" BeforeTargets="ResolveProjectReferences;Build" Condition="'$(OpenIgiRoot)' == ''">
     <Error Text="The tests build against a checkout of OpenIGI: set OPENIGI_ROOT to one, or clone it as igi-remastered beside this repository." />
   </Target>
 
