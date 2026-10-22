@@ -1,9 +1,9 @@
 using OpenIGI.Core.Numerics;
 using OpenIGI.Engine.Tasks;
 using OpenIGI.Formats.Ilff;
+using OpenIGI.Game.Igi1.World;
 using OpenIGI.Game.Player;
 using OpenIGI.Game.World;
-using OpenIGI.Mods.Igi2Soldiers.Detection;
 using OpenIGI.TestSupport;
 using Xunit;
 
@@ -23,14 +23,14 @@ public sealed class Igi1LightTests
 
         // The start is in the open, in the sun: no floor under it, the ground's light.
         Vector3d start = PlayerSpawn.FindGameplayTask(level)!.Position;
-        Assert.Null(objects.At(start));
-        Assert.InRange(ground.At(start)!.Value, 0.7f, 0.8f);
+        Assert.Null(objects.LightAt(start));
+        Assert.InRange(ground.LightAt(start)!.Value, 0.7f, 0.8f);
 
         // Guard 2002 stands inside the security building: its lit floor, brighter than the ground baked in the building's
         // shadow beneath it.
         Vector3d inside = level.Descendants().OfType<HumanSoldierTask>().Single(static soldier => soldier.Id == 2002).Position;
-        float floor = Assert.IsType<float>(objects.At(inside));
+        float floor = Assert.IsType<float>(objects.LightAt(inside));
         Assert.InRange(floor, 0f, 1f);
-        Assert.True(floor > ground.At(inside)!.Value + 0.2f, $"the floor {floor} is the ground's {ground.At(inside)}");
+        Assert.True(floor > ground.LightAt(inside)!.Value + 0.2f, $"the floor {floor} is the ground's {ground.LightAt(inside)}");
     }
 }

@@ -3,13 +3,17 @@ using OpenIGI.Core.Numerics;
 using OpenIGI.Core.Titles;
 using OpenIGI.Game.Ai;
 using OpenIGI.Game.Hosting;
+using OpenIGI.Game.Igi1.World;
+using OpenIGI.Game.Igi2.Collision;
+using OpenIGI.Game.Igi2.Scripting;
+using OpenIGI.Game.Igi2.Systems;
 using OpenIGI.Game.Player;
 using OpenIGI.Modding;
 using OpenIGI.Modding.Presentation;
 using OpenIGI.Mods.Igi2Soldiers.Collision;
 using OpenIGI.Mods.Igi2Soldiers.Mapping;
-using OpenIGI.Mods.Igi2Soldiers.Scripts;
 using OpenIGI.Presentation;
+using OpenIGI.Presentation.Igi2.World;
 
 namespace OpenIGI.Mods.Igi2Soldiers;
 
@@ -38,8 +42,8 @@ public sealed partial class Igi2SoldiersMod : IOpenIgiPresentationMod
 
     private IModContext? _session;
     private ITitleAudio? _audio;
-    private Igi2SoldierKit? _kit;
-    private Igi2SoldierLevel? _level;
+    private Igi2GuestContent? _content;
+    private Igi2HostedLevel? _level;
 
     /// <summary>Gets the table that says which Project I.G.I. soldiers become which.</summary>
     public SoldierTable Table { get; private set; } = SoldierTable.Shipped;
@@ -54,8 +58,8 @@ public sealed partial class Igi2SoldiersMod : IOpenIgiPresentationMod
             return;
         }
 
-        presenters.ForLevel(request => _kit is { } kit && _level is { } level
-            ? new Presentation.Igi2SoldierPresenter(request.Device, kit, level, request.Logger)
+        presenters.ForLevel(request => _content is { } content && _level is { } level
+            ? new Igi2HostedLevelPresenter(request.Device, content, level, request.Logger)
             : null);
     }
 
@@ -93,21 +97,21 @@ public sealed partial class Igi2SoldiersMod : IOpenIgiPresentationMod
             return;
         }
 
-        _kit ??= Igi2SoldierKit.Load(igi2, Table, Logger);
+        _content ??= Igi2GuestContent.Load(igi2, Table.Models, Logger);
         string missionDirectory = Path.Combine(igi1, build.Loaded.Descriptor.MissionDirectory);
-        _kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, _kit.Scripts));
+        _content.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, _content.Scripts));
         Game.World.TerrainData? terrain = build.Loaded.Terrain is { IsUsable: true } usable ? usable : null;
 
         // The models' solids follow Project I.G.I.'s collision of them as they move, and what rides them goes along.
-        Dictionary<Game.World.WorldPlacement, Game.Igi2.Collision.Igi2RigidObject> solids = [];
-        Game.Igi2.Collision.Igi2CollisionWorld world =
+        Dictionary<Game.World.WorldPlacement, Igi2RigidObject> solids = [];
+        Igi2CollisionWorld world =
             Igi1CollisionWorld.Build(scene.Placements, terrain, static material => material, (object?)terrain ?? scene, solids);
         Game.World.ObjectCollisionIndex? moving = build.Solids;
-        Igi1Carriers carriers = new(
+        Igi2PlacedCarriers carriers = new(
             solids,
             moving is null ? null : placement => (moving.TryGetPose(placement, out Vector3d at, out Matrix3f turn), at, turn));
         _level = Igi2SoldierLevel.Spawn(
-            _kit,
+            _content,
             Table,
             build.LevelRoot,
             build.Graphs ?? [],
@@ -119,22 +123,17 @@ public sealed partial class Igi2SoldiersMod : IOpenIgiPresentationMod
             carriers,
             // Their sounds are I.G.I. 2's, heard through the game's own device beside its sounds.
             _audio ??= _session is not null && _session.Services.TryGet(out ITitleAudioMixer? mixer)
-                ? mixer.Open(_kit.Guest.FileSystem, _kit.SoundDefinitions, _kit.SoundBanks)
+                ? mixer.Open(_content.Guest.FileSystem, _content.SoundDefinitions, _content.SoundBanks)
                 : null,
             // The light the level bakes into its buildings, which the soldiers see the player by indoors.
-            Detection.Igi1ObjectLight.Of(scene.Placements, LightmapArchive(missionDirectory)));
-        _level.JoinTo(build.Mission, build.LevelRoot);
+            Igi1ObjectLight.InMission(scene.Placements, missionDirectory));
+
+        // Project I.G.I.'s rounds and blasts strike them at the table's DamageFromIgi1.
+        _level.JoinTo(build.Mission, build.LevelRoot, Table.DamageFromIgi1);
         _level.BindTo(build.Walker);
     }
 
     private IOpenIgiLogger Logger => _session?.Logger ?? NullLogger.Instance;
-
-    // A level's object lightmaps, lightmaps/lightmaps.res in its mission directory; none where it bakes none.
-    private static Formats.Ilff.IresArchive? LightmapArchive(string missionDirectory)
-    {
-        string path = Path.Combine(missionDirectory, "lightmaps", "lightmaps.res");
-        return File.Exists(path) ? Formats.Ilff.IresArchive.Read(File.ReadAllBytes(path)) : null;
-    }
 
     private string? DataRoot(GameTitle title) => _session is not null && _session.TryGetDataRoot(title, out string? root) ? root : null;
 }

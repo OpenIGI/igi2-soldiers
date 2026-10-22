@@ -6,19 +6,19 @@ using OpenIGI.Core.Titles;
 using OpenIGI.Engine.Resources;
 using OpenIGI.Engine.Tasks;
 using OpenIGI.Engine.Vfs;
-using OpenIGI.Formats.Ai;
 using OpenIGI.Game.Ai;
 using OpenIGI.Game.Igi1.Ai;
+using OpenIGI.Game.Igi2.Scripting;
 using OpenIGI.Game.Igi2.Soldiers;
+using OpenIGI.Game.Igi2.Systems;
 using OpenIGI.Game.Player;
 using OpenIGI.Game.World;
 using OpenIGI.Modding;
 using OpenIGI.Modding.Presentation;
 using OpenIGI.Mods.Igi2Soldiers.Collision;
 using OpenIGI.Mods.Igi2Soldiers.Mapping;
-using OpenIGI.Mods.Igi2Soldiers.Presentation;
-using OpenIGI.Mods.Igi2Soldiers.Scripts;
 using OpenIGI.Presentation;
+using OpenIGI.Presentation.Igi2.World;
 using OpenIGI.TestSupport;
 using Xunit;
 using Xunit.Abstractions;
@@ -34,9 +34,9 @@ public sealed class Igi2SoldierPresenterTests(ITestOutputHelper output)
         string igi1 = GameData.RequireRoot();
         string missionDirectory = Path.Combine(igi1, "missions", "location0", "level1");
         (LevelTask level, WorldScene scene, TerrainData terrain) = Igi2SoldierLevelTests.Load(igi1);
-        Igi2SoldierKit kit = Igi2SoldierKit.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped);
-        kit.Guest.FileSystem.RegisterDevice(new Igi1MissionDevice(missionDirectory, kit.Scripts));
-        Igi2SoldierLevel soldiers = Igi2SoldierLevel.Spawn(
+        Igi2GuestContent kit = Igi2GuestContent.Load(GameDataSource.Igi2.RequireRoot(), SoldierTable.Shipped.Models);
+        kit.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, kit.Scripts));
+        Igi2HostedLevel soldiers = Igi2SoldierLevel.Spawn(
             kit,
             SoldierTable.Shipped,
             level,
@@ -56,7 +56,7 @@ public sealed class Igi2SoldierPresenterTests(ITestOutputHelper output)
         Matrix4f projection = Matrix4f.CreateProjection(640f, 360f, 640f, 360f, 1280, 720, 0.1f, 1000f);
 
         using RecordingGraphicsDevice device = new();
-        using Igi2SoldierPresenter presenter = new(device, kit, soldiers, NullLogger.Instance);
+        using Igi2HostedLevelPresenter presenter = new(device, kit, soldiers, NullLogger.Instance);
         presenter.Draw(camera, projection, 0f);
 
         output.WriteLine($"{device.AnimatedMeshUpdates.Count} bodies skinned, {device.MeshDraws.Count} meshes drawn");
