@@ -5,12 +5,14 @@ using OpenIGI.Engine.Tasks;
 using OpenIGI.Formats.Ai;
 using OpenIGI.Game.Ai;
 using OpenIGI.Game.Igi1.Ai;
+using OpenIGI.Game.Igi1.Player;
 using OpenIGI.Game.Igi1.World;
 using OpenIGI.Game.Igi2.Ai;
 using OpenIGI.Game.Igi2.Ai.Runtime;
 using OpenIGI.Game.Igi2.Collision;
 using OpenIGI.Game.Igi2.Scripting;
 using OpenIGI.Game.Igi2.Systems;
+using OpenIGI.Game.Igi2.Weapons;
 using OpenIGI.Game.Player;
 using OpenIGI.Game.World;
 using OpenIGI.Mods.Igi2Soldiers.Collision;
@@ -121,6 +123,11 @@ public static class Igi2SoldierLevel
         ArgumentNullException.ThrowIfNull(random);
         IOpenIgiLogger log = logger ?? NullLogger.Instance;
         Igi2GuestLevel guest = Igi2GuestLevel.Open(content);
+
+        // The weapons I.G.I. 2 has, by the ids both games give them: a guard is armed with its own where they are here.
+        HashSet<string> igi2Weapons = content.Guest.Session.Services.TryGet(out Igi2HumanWeapons? arms)
+            ? [.. arms.Tables.WeaponTypes.Select(static w => w.WeaponId)]
+            : [];
 
         // Each guard's own orders -- the path it patrols, the gun it mans, how far it sees -- and the paths themselves, carried
         // into the guest's level under their own ids for the soldiers' scripts to send them on.
@@ -237,7 +244,7 @@ public static class Igi2SoldierLevel
                 soldier.Gamma = igi1.Gamma;
                 soldier.Team = igi1.Team;
                 soldier.Model = mapping.ModelFor(igi1.Id);
-                soldier.WeaponScript = mapping.Weapon;
+                soldier.WeaponScript = WeaponScriptOf(igi1, mapping, igi2Weapons);
                 soldier.BoneHierarchy = 1;
                 Igi2HumanAiTask ai = guest.AddMind(soldier, life == 0 ? mind?.Id ?? -1 : -1);
                 ai.AiTypeName = mapping.AiType;
@@ -331,6 +338,21 @@ public static class Igi2SoldierLevel
 
         position = default;
         return false;
+    }
+
+    // What a guard carries into the fight: its own Project I.G.I. weapons, each by the id I.G.I. 2 knows it by, so a guard
+    // with no grenade throws none; a guard that lists none takes the table's, its grenades and flashbangs left out, as it has
+    // none of its own.
+    private static string WeaponScriptOf(HumanTask igi1, SoldierMapping mapping, HashSet<string> igi2Weapons)
+    {
+        string[] own = [.. PlayerLoadout.WeaponsOf(igi1).Select(static w => w.WeaponId).Where(igi2Weapons.Contains).Distinct()];
+        if (own.Length > 0)
+        {
+            return string.Join(", ", own.Select(static id => $"{Igi2HumanWeapons.AddWeaponNative}(\"{id}\")"));
+        }
+
+        return string.Join(", ", mapping.Weapon.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Where(static call => !call.Contains("GRENADE", StringComparison.Ordinal) && !call.Contains("FLASHBANG", StringComparison.Ordinal)));
     }
 
     // A guard's orders off its own script, MISSION:AI/<mind id>.qsc, read from its compiled form beside it.

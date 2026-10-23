@@ -72,6 +72,19 @@ public sealed class Igi2SoldierOrdersTests(ITestOutputHelper output)
         Assert.NotEmpty(kept);
         Assert.All(kept, guard => Assert.Contains(guard, soldiers.Detection.Detectables));
 
+        // Each carries its own Project I.G.I. weapons: mission one's guards their AKs, MP5s and Dragunov, a few a grenade or a
+        // flashbang, and no grenade a guard of theirs does not carry.
+        foreach ((HumanTask task, Igi2HumanSoldier body) in soldiers.HandedOver)
+        {
+            string[] own = [.. Game.Igi1.Player.PlayerLoadout.WeaponsOf(task).Select(static w => w.WeaponId)];
+            string[] carried = [.. body.Weapon.Inventory!.Weapons.Where(static w => w is { IsActive: true }).Select(static w => w.WeaponType.WeaponId)];
+            Assert.Equal(own.Contains("WEAPON_ID_GRENADE"), carried.Contains("WEAPON_ID_GRENADE"));
+            Assert.All(own, id => Assert.Contains(id, carried));
+            Assert.NotEmpty(carried);
+        }
+
+        Assert.Equal(4, soldiers.HandedOver.Values.Count(static b => b.Weapon.Inventory!.Weapons.Any(static w => w is { IsActive: true } && w.WeaponType.WeaponId == "WEAPON_ID_GRENADE")));
+
         // The world a fight needs: grenades, the guns the dead drop, the casings the guns throw.
         Assert.NotNull(soldiers.Grenades);
         Assert.NotNull(soldiers.Pickups);
