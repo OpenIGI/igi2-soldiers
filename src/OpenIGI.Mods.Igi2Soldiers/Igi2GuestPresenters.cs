@@ -21,7 +21,8 @@ internal sealed class Igi2GuestHud(Igi2HudRenderer hud, Igi2GuestContent content
     public void Load(VirtualFileSystem files) => hud.Load(content.Guest.FileSystem);
 
     /// <inheritdoc/>
-    public void Draw(SpriteBatch batch, ITitlePlayer player, int screenWidth, int screenHeight) => hud.Draw(batch, player, screenWidth, screenHeight);
+    public void Draw(SpriteBatch batch, ITitlePlayer player, int screenWidth, int screenHeight, int requestedScale = UiScale.Automatic) =>
+        hud.Draw(batch, player, screenWidth, screenHeight, requestedScale);
 
     /// <inheritdoc/>
     public void Dispose() => hud.Dispose();

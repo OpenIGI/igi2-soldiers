@@ -66,6 +66,11 @@ public sealed class Igi2PlayerInIgi1Tests(ITestOutputHelper output)
         // His map computer, which opens on the mission's level.
         Assert.NotNull(jones.Computer);
 
+        // His inventory names his weapons in I.G.I. 2's words, short as its status screen has them.
+        output.WriteLine($"knife: {jones.Strings?.WeaponShortName("COMBAT KNIFE")}");
+        Assert.NotNull(jones.Strings);
+        Assert.NotEqual("COMBAT KNIFE", jones.Strings.WeaponShortName("COMBAT KNIFE"));
+
         Game.Igi2.Interaction.Igi2HostInteraction[] usable = [.. jones.Activatables.OfType<Game.Igi2.Interaction.Igi2HostInteraction>()];
         output.WriteLine($"{interactions.Items.Count} interactions, {usable.Length} usable by Jones");
         Game.Igi2.Interaction.IIgi2Door door = Assert.IsAssignableFrom<Game.Igi2.Interaction.IIgi2Door>(
@@ -80,6 +85,16 @@ public sealed class Igi2PlayerInIgi1Tests(ITestOutputHelper output)
                 or InteractionActivateType.MountedGunTransition or InteractionActivateType.None)
                 && (i.Type != InteractionActivateType.Door || i.Door is not null)),
             usable.Length);
+
+        // A switch or a terminal is offered from in front of it, as the mission's player has it, and not from behind, through its wall.
+        foreach (Game.Igi2.Interaction.Igi2HostInteraction panel in usable.Where(static u => u.Interaction.Type is InteractionActivateType.Switch or InteractionActivateType.Terminal))
+        {
+            WorldInteraction at = panel.Interaction;
+            Matrix3f o = at.Orientation;
+            Vector3d front = new(o.M12, o.M22, o.M32);
+            Assert.Same(panel, Offered(panel, at.Anchor + (front * 3072.0), at.Anchor));
+            Assert.Null(Offered(panel, at.Anchor - (front * 3072.0), at.Anchor));
+        }
 
         // A cabinet is searched as I.G.I. 2's are, and is then the mission's searched cabinet.
         if (usable.OfType<Game.Igi2.Interaction.IIgi2Cabinet>().FirstOrDefault() is { } cabinet)
@@ -173,5 +188,16 @@ public sealed class Igi2PlayerInIgi1Tests(ITestOutputHelper output)
             jones.Tick(new TitlePlayerInput(0f, 0f, 0, 0, 1f, false));
             soldiers.Tick();
         }
+    }
+
+    // What a view at a place, looking at a spot, is offered of a thing.
+    private static Game.Igi2.Interaction.IIgi2Activatable? Offered(Game.Igi2.Interaction.Igi2HostInteraction thing, Vector3d view, Vector3d spot)
+    {
+        Vector3d f = new Vector3d(spot.X - view.X, spot.Y - view.Y, 0.0).Normalized();
+        Vector3d r = new(f.Y, -f.X, 0.0);
+        Game.Igi2.Interaction.Igi2EvaluateActivate context = new(
+            view, [(float)r.X, (float)f.X, 0f, (float)r.Y, (float)f.Y, 0f, 0f, 0f, 1f], isPlayer: true);
+        thing.EvaluateActivate(context);
+        return context.Best;
     }
 }
