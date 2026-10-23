@@ -80,6 +80,8 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         soldiers.JoinTo(mission, level, SoldierTable.Shipped.DamageFromIgi1);
         Assert.Equal(mapped, mission.Bodies.Sources.Single().Bodies().Count());
         Assert.Equal(mapped, mission.Joined.ExplosionTargets.Count);
+        // The player's binoculars mark every soldier.
+        Assert.Equal(mapped, mission.Joined.Seen.Count);
         // Every soldier, and the player's visibility, which hears the level's broadcasts for the player's loud shots.
         Assert.Equal(mapped + 1, mission.Joined.Humans.Count);
 
