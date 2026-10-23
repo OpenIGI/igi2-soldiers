@@ -28,13 +28,15 @@ namespace OpenIGI.Mods.Igi2Soldiers;
 /// <remarks>
 /// <para>
 /// Each soldier the table maps is handed over: its Project I.G.I. task stays, driven by I.G.I. 2 (<see cref="HumanTask.Driver"/>),
-/// and an I.G.I. 2 soldier stands where it stood, facing as it faced, on its side, dressed and armed as the table says, its mind of
+/// and an I.G.I. 2 soldier stands where it stood, facing as it faced, on its side, dressed as the table says and armed with its own
+/// weapons, its mind of
 /// the table's type walking the graph its Project I.G.I. mind walked. The guest's tasks keep the Project I.G.I. tasks' ids.
 /// </para>
 /// <para>
 /// The level is brought up as I.G.I. 2 brings its own (<see cref="Igi2GuestLevel"/>), and runs inside the mission's
 /// (<see cref="Igi2HostedLevel"/>). Project I.G.I. authored no squads, so its guards are put in squads as I.G.I. 2's levels
-/// have them: those one container holds who walk one graph on one side, eight at most, so they hear, warn and fight as one.
+/// have them: guards standing together, in one building or near one another outdoors, eight at most (<see cref="SquadReach"/>),
+/// so they hear, warn and fight as one.
 /// </para>
 /// </remarks>
 public static class Igi2SoldierLevel
@@ -203,20 +205,23 @@ public static class Igi2SoldierLevel
         // mind keeps its Project I.G.I. task's id where it can.
         Dictionary<HumanTask, List<(Igi2AiSquadTask Squad, Igi2HumanSoldierTask Soldier)>> lives = [];
 
-        // Squads, as I.G.I. 2's levels have them: the guards one container holds who walk one graph on one side, eight at most
-        // (Igi2AiSquadTeam.Capacity). Project I.G.I. authored no squads; these are its guards' own groups.
-        Dictionary<(GameTask? Parent, int Graph, int Team), (Igi2AiSquadTask Squad, int Members)> squads = [];
-        Igi2AiSquadTask SquadFor(HumanSoldierTask igi1, HumanAiTask? mind)
+        // Squads, as I.G.I. 2's levels have them: guards standing together (Squads). Project I.G.I. authored no squads.
+        Dictionary<HumanSoldierTask, int> squadOf = Squads(level.Descendants().OfType<HumanSoldierTask>()
+            .Where(guard => guard.Parent is not GuardGeneratorTask && table.For(AiTypeOf(MindOf(guard))) is not null));
+        Dictionary<int, Igi2AiSquadTask> squads = [];
+        Igi2AiSquadTask SquadFor(HumanSoldierTask igi1)
         {
-            (GameTask? Parent, int Graph, int Team) key = (igi1.Parent, mind?.GraphId ?? -1, igi1.Team);
-            if (squads.TryGetValue(key, out (Igi2AiSquadTask Squad, int Members) open) && open.Members < Igi2AiSquadTeam.Capacity)
+            if (!squadOf.TryGetValue(igi1, out int group))
             {
-                squads[key] = (open.Squad, open.Members + 1);
-                return open.Squad;
+                return guest.AddSquad();
             }
 
-            Igi2AiSquadTask squad = guest.AddSquad();
-            squads[key] = (squad, 1);
+            if (!squads.TryGetValue(group, out Igi2AiSquadTask? squad))
+            {
+                squad = guest.AddSquad();
+                squads[group] = squad;
+            }
+
             return squad;
         }
 
@@ -233,7 +238,7 @@ public static class Igi2SoldierLevel
             for (int life = 0; life < count; life++)
             {
                 // A generator's lives stand in the world one at a time: each is a squad of its own.
-                Igi2AiSquadTask squad = igi1.Parent is GuardGeneratorTask ? guest.AddSquad() : SquadFor(igi1, mind);
+                Igi2AiSquadTask squad = igi1.Parent is GuardGeneratorTask ? guest.AddSquad() : SquadFor(igi1);
                 if (scripts is not null && life == 0)
                 {
                     orders = OrdersFor(mind, squad);
@@ -338,6 +343,68 @@ public static class Igi2SoldierLevel
 
         position = default;
         return false;
+    }
+
+    /// <summary>How far apart two guards may stand and fight as one squad: twenty metres, as nine in ten of I.G.I. 2's own.</summary>
+    /// <remarks>
+    /// Across I.G.I. 2's nineteen levels a squad's soldiers stand a median three metres from the nearest of their squad, nine in ten
+    /// squads within nineteen, every squad on one graph, two to five soldiers mostly and eight at most.
+    /// </remarks>
+    public const double SquadReach = 20.0 * 4096.0;
+
+    // Which squad each guard is in: guards in one container, on one graph and one side, joined nearest first while the two are
+    // within SquadReach of each other and the squad they make holds no more than I.G.I. 2's eight (Igi2AiSquadTeam.Capacity). A
+    // building's guards walk its own graph, so they keep to themselves; guards outdoors team up with those about them only.
+    private static Dictionary<HumanSoldierTask, int> Squads(IEnumerable<HumanSoldierTask> guards)
+    {
+        Dictionary<HumanSoldierTask, int> squadOf = [];
+        int next = 0;
+        foreach (IGrouping<(GameTask?, int, int), HumanSoldierTask> side in guards.GroupBy(static g => (g.Parent, MindOf(g)?.GraphId ?? -1, g.Team)))
+        {
+            HumanSoldierTask[] members = [.. side];
+            int[] root = [.. Enumerable.Range(0, members.Length)];
+            int[] size = [.. Enumerable.Repeat(1, members.Length)];
+            int Find(int i) => root[i] == i ? i : root[i] = Find(root[i]);
+
+            List<(double Distance, int A, int B)> pairs = [];
+            for (int a = 0; a < members.Length; a++)
+            {
+                for (int b = a + 1; b < members.Length; b++)
+                {
+                    Vector3d d = members[a].Position - members[b].Position;
+                    double apart = Math.Sqrt((d.X * d.X) + (d.Y * d.Y) + (d.Z * d.Z));
+                    if (apart <= SquadReach)
+                    {
+                        pairs.Add((apart, a, b));
+                    }
+                }
+            }
+
+            foreach ((_, int a, int b) in pairs.OrderBy(static p => p.Distance))
+            {
+                int ra = Find(a), rb = Find(b);
+                if (ra != rb && size[ra] + size[rb] <= Igi2AiSquadTeam.Capacity)
+                {
+                    root[rb] = ra;
+                    size[ra] += size[rb];
+                }
+            }
+
+            Dictionary<int, int> numbered = [];
+            for (int i = 0; i < members.Length; i++)
+            {
+                int r = Find(i);
+                if (!numbered.TryGetValue(r, out int squad))
+                {
+                    squad = next++;
+                    numbered[r] = squad;
+                }
+
+                squadOf[members[i]] = squad;
+            }
+        }
+
+        return squadOf;
     }
 
     // What a guard carries into the fight: its own Project I.G.I. weapons, each by the id I.G.I. 2 knows it by, so a guard

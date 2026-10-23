@@ -50,7 +50,7 @@ public sealed class Igi2SoldierOrdersTests(ITestOutputHelper output)
             kit, table, level, graphs, world, player, AiDifficulty.Normal, new IgiRandom(), NullLogger.Instance,
             scripts: scripts, missionDirectory: missionDirectory, alarms: new Igi1Alarms(_ => sounding, pressed.Add));
 
-        // Squads: the guards Project I.G.I. placed together fight together, no more than a squad holds, on one graph.
+        // Squads: guards Project I.G.I. placed together fight together, no more than a squad holds, on one graph.
         Igi2HumanAi[] minds = [.. soldiers.HandedOver.Values.Select(static body => (Igi2HumanAi)body.Mind!)];
         IGrouping<Igi2AiSquad?, Igi2HumanAi>[] squads = [.. minds.GroupBy(static mind => mind.Squad)];
         output.WriteLine($"{minds.Length} soldiers in {squads.Length} squads: {string.Join(", ", squads.Select(static s => s.Count()))}");
@@ -58,6 +58,14 @@ public sealed class Igi2SoldierOrdersTests(ITestOutputHelper output)
         Assert.All(squads, static squad => Assert.InRange(squad.Count(), 1, Igi2AiSquadTeam.Capacity));
         Assert.All(squads, static squad => Assert.Single(squad.Select(static mind => mind.Graph).Distinct()));
         Assert.Contains(squads, static squad => squad.Count() > 1);
+
+        // ...and only guards standing together: each has a squadmate within twenty metres of where it was placed.
+        foreach (IGrouping<Igi2AiSquad?, HumanTask> squad in soldiers.HandedOver.GroupBy(static p => ((Igi2HumanAi)p.Value.Mind!).Squad, static p => p.Key))
+        {
+            HumanTask[] mates = [.. squad];
+            Assert.All(mates.Where(_ => mates.Length > 1), guard => Assert.Contains(
+                mates, other => !ReferenceEquals(other, guard) && Distance(other.Position, guard.Position) <= Igi2SoldierLevel.SquadReach));
+        }
 
         // Orders: each guard's own script, read off its Project I.G.I. one, written as I.G.I. 2 writes a soldier's.
         Dictionary<HumanTask, Igi1GuardOrders> orders = soldiers.HandedOver.Keys.ToDictionary(static task => task, task => OrdersOf(task, missionDirectory));
