@@ -173,6 +173,30 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
             Logger.Information(LogCategory, $"{laid} of the mission's weapons lie as I.G.I. 2's.");
         }
 
+        // The mission's mounted guns are I.G.I. 2's for I.G.I. 2's player and soldiers to work, each on the mission's mount.
+        if (prepared is not null && build.Mission.Interactions is { } mounts)
+        {
+            int mounted = 0;
+            foreach (Game.World.WorldInteraction mount in mounts.Items)
+            {
+                if (mount.StationaryGun is not { } gun)
+                {
+                    continue;
+                }
+
+                Vector3f angles = mount.Task.TryGetValue("Orientation", out object? raw) && raw is Vector3f given ? given : default;
+                string weapon = Igi2SoldierLevel.HasWeapon(_content, gun.WeaponId) ? gun.WeaponId : "WEAPON_ID_M2HB";
+                if (prepared.Guest.AddStationaryGun(
+                    gun.TaskId, gun.GunPosition, angles, gun.MaximumAlphaDegrees, gun.MinimumAlphaDegrees, gun.MaximumGammaDegrees, weapon) is not null)
+                {
+                    gun.IsHandedOver = true;
+                    mounted++;
+                }
+            }
+
+            Logger.Information(LogCategory, $"{mounted} of the mission's mounted guns are I.G.I. 2's.");
+        }
+
         _level = Igi2SoldierLevel.Spawn(
             _content,
             _table,
@@ -212,6 +236,22 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
             player.Events = body;
         }
 
+        // A gun a guard of the mission's drops falls as I.G.I. 2's, for I.G.I. 2's player to take, and the mission's is taken out.
+        if (_level.Player is not null && _options.Pickups.Value && build.Mission.GunPickups is { } dropping)
+        {
+            Igi2HostedLevel hosted = _level;
+            void Drop(Game.World.GunPickup pickup)
+            {
+                if (hosted.DropGun(pickup.Weapon.ScriptId, pickup.Position, pickup.Orientation))
+                {
+                    dropping.Withdraw(pickup);
+                }
+            }
+
+            dropping.Spawned += Drop;
+            hosted.OnLeave(() => dropping.Spawned -= Drop);
+        }
+
         // The ammunition and the items the mission lays about, which I.G.I. 2's pickups do not hold: I.G.I. 2's player takes
         // them as the mission's own would on reaching them, the ammunition into its I.G.I. 2 pouches.
         if (_level.Player is { } taker && _options.Pickups.Value && build.Mission.GenericPickups is { } generic)
@@ -241,8 +281,8 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
             if (mission.AmmoTypes is { } ammoTypes && Game.World.AmmoPickupCatalog.TryResolve(pickup, ammoTypes, out Game.Weapons.AmmoType ammo))
             {
                 int rounds = Game.World.AmmoPickupCatalog.Amount(pickup, ammo.AmmoId);
-                taker.Inventory?.AddAmmo(ammo.ScriptId, rounds);
-                Logger.Information(LogCategory, $"I.G.I. 2's player picks up {rounds} of {ammo.ScriptId}.");
+                string? into = taker.Inventory is { } pouches ? Igi1AmmoForIgi2.Add(pouches, ammo, rounds, mission.WeaponTypes, ammoTypes) : null;
+                Logger.Information(LogCategory, $"I.G.I. 2's player picks up {rounds} of {ammo.ScriptId}, into {into ?? "nothing it fires"}.");
             }
         }
     }

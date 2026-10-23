@@ -51,11 +51,20 @@ public sealed class Igi2PlayerInIgi1Tests(ITestOutputHelper output)
         WorldInteractionRegistry interactions = WorldInteractionRegistry.Build(level, fixture.Loaded, doors, new ScriptVarRegistry(new OpenIGI.Scripting.Runtime.NativeRegistry()));
         List<int> used = [];
 
+
         Igi2HostedLevel soldiers = Igi2SoldierLevel.Spawn(
             kit, SoldierTable.Shipped, level, NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance),
             world, task, AiDifficulty.Normal, new IgiRandom(), NullLogger.Instance, guest: guest,
             interactions: interactions.Items, activated: used.Add, ladders: scene.Ladders);
         Assert.Contains(soldiers.Pickups!.Items, static p => p.WeaponType.WeaponId == "WEAPON_ID_AK47");
+
+        // A gun a guard of the mission's drops falls as I.G.I. 2's.
+        int lying = soldiers.Pickups.Items.Count;
+        Assert.True(soldiers.DropGun("WEAPON_ID_DRAGUNOV", spawn.Position + new Vector3d(0, 4096, 8192), Matrix3f.Identity));
+        Assert.Equal(lying + 1, soldiers.Pickups.Items.Count);
+
+        // His map computer, which opens on the mission's level.
+        Assert.NotNull(jones.Computer);
 
         Game.Igi2.Interaction.Igi2HostInteraction[] usable = [.. jones.Activatables.OfType<Game.Igi2.Interaction.Igi2HostInteraction>()];
         output.WriteLine($"{interactions.Items.Count} interactions, {usable.Length} usable by Jones");
@@ -103,5 +112,49 @@ public sealed class Igi2PlayerInIgi1Tests(ITestOutputHelper output)
         Assert.True(((IShootableBody)mission.Bodies.Sources.OfType<Igi2ShootablePlayer>().Single()).TryMeet(
             chest + new Vector3d(40960, 0, 0), chest - new Vector3d(40960, 0, 0), out HumanHit hit));
         output.WriteLine($"struck at {hit.Position}");
+    }
+
+    [RequiresTitleDataFact("igi2")]
+    public void A_missions_mounted_guns_are_I_G_I_2s_on_their_mounts_for_Jones_and_the_soldiers()
+    {
+        string igi1 = GameData.RequireRoot();
+        (LevelTask level, WorldScene scene, TerrainData terrain, string missionDirectory) = Igi2SoldierLevelTests.LoadMission(igi1, 4);
+        Igi2GuestContent kit = Igi2GuestContent.Load(
+            GameDataSource.Igi2.RequireRoot(),
+            SoldierTable.Shipped.Models.Append(Igi2GuestPlayerStart.JonesModel).Append(Igi2Gameplay.FirstPersonFallbackModel));
+        kit.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, kit.Scripts));
+        HumanPlayerTask task = PlayerSpawn.FindGameplayTask(level)!;
+        Assert.True(PlayerSpawn.TryFindGameplay(level, out PlayerSpawnPoint spawn));
+        Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object());
+        Igi2GuestLevel guest = Igi2GuestLevel.Open(kit);
+        Igi2TitlePlayer jones = guest.AddPlayer(world, new Igi2GuestPlayerStart(spawn.Position, spawn.Gamma, AiDifficulty.Normal));
+
+        Igi1Mission fixture = MissionFixture.Igi1(4, igi1);
+        WorldInteractionRegistry interactions = WorldInteractionRegistry.Build(
+            level, fixture.Loaded, DoorRegistry.Build(level), new ScriptVarRegistry(new OpenIGI.Scripting.Runtime.NativeRegistry()));
+        Game.Ai.AiStationaryGun[] mounted = [.. interactions.Items.Select(static i => i.StationaryGun).OfType<Game.Ai.AiStationaryGun>()];
+        output.WriteLine($"{mounted.Length} mounted guns");
+        Assert.NotEmpty(mounted);
+        foreach (Game.Ai.AiStationaryGun gun in mounted)
+        {
+            Assert.NotNull(guest.AddStationaryGun(gun.TaskId, gun.GunPosition, default, gun.MaximumAlphaDegrees, gun.MinimumAlphaDegrees, gun.MaximumGammaDegrees));
+            gun.IsHandedOver = true;
+            Assert.False(gun.TryMount(new object()));
+        }
+
+        Igi2HostedLevel soldiers = Igi2SoldierLevel.Spawn(
+            kit, SoldierTable.Shipped, level, NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance),
+            world, task, AiDifficulty.Normal, new IgiRandom(), NullLogger.Instance, guest: guest);
+
+        // Jones works them; a soldier ordered to man one finds it by the mission's id; they are drawn with his world.
+        Assert.Equal(mounted.Length, soldiers.Guns.Count);
+        Assert.All(soldiers.Guns, gun => Assert.Contains(gun, jones.Activatables));
+        Assert.All(mounted, gun => Assert.Same(soldiers.Guns.Single(g => g.Id == gun.TaskId), soldiers.Ai.StationaryGun(gun.TaskId)));
+        Assert.All(soldiers.Guns, static gun => Assert.NotNull(gun.Firing));
+        for (int tick = 0; tick < 10; tick++)
+        {
+            jones.Tick(new TitlePlayerInput(0f, 0f, 0, 0, 1f, false));
+            soldiers.Tick();
+        }
     }
 }

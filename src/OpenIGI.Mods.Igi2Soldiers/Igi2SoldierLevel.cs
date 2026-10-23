@@ -425,6 +425,17 @@ public static class Igi2SoldierLevel
         return squadOf;
     }
 
+    /// <summary>Whether I.G.I. 2 has a weapon of an id.</summary>
+    /// <param name="content">The I.G.I. 2 content, whose weapon tables name what I.G.I. 2 has.</param>
+    /// <param name="weaponId">The id.</param>
+    /// <returns>Whether it has.</returns>
+    public static bool HasWeapon(Igi2GuestContent content, string weaponId)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        return content.Guest.Session.Services.TryGet(out Igi2HumanWeapons? arms)
+            && arms.Tables.WeaponTypes.Any(w => string.Equals(w.WeaponId, weaponId, StringComparison.Ordinal));
+    }
+
     /// <summary>
     /// What I.G.I. 2's player carries in a Project I.G.I. mission: the mission's player's own weapons, each by the id I.G.I. 2
     /// knows it by; with none of them I.G.I. 2's, a knife and a pistol.
