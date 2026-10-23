@@ -73,6 +73,23 @@ public sealed class Igi2PlayerInIgi1Tests(ITestOutputHelper output)
         door.ToggleOpen(spawn.Position);
         Assert.Single(used);
 
+        // Every other thing the mission's player uses he uses too: its ladders and mounted guns his own way, the rest so.
+        output.WriteLine(string.Join(", ", interactions.Items.GroupBy(static i => i.Type).Select(static g => $"{g.Key} {g.Count()}")));
+        Assert.Equal(
+            interactions.Items.Count(static i => i.Type is not (InteractionActivateType.Ladder or InteractionActivateType.StationaryGun
+                or InteractionActivateType.MountedGunTransition or InteractionActivateType.None)
+                && (i.Type != InteractionActivateType.Door || i.Door is not null)),
+            usable.Length);
+
+        // A cabinet is searched as I.G.I. 2's are, and is then the mission's searched cabinet.
+        if (usable.OfType<Game.Igi2.Interaction.IIgi2Cabinet>().FirstOrDefault() is { } cabinet)
+        {
+            WorldInteraction searched = ((Game.Igi2.Interaction.Igi2HostInteraction)cabinet).Interaction;
+            Assert.True(cabinet.SearchTime > 0f);
+            cabinet.Searched();
+            Assert.True(searched.IsSearched);
+        }
+
         // The mission's ladders, the watchtowers' among them, which he climbs as I.G.I. 2's player climbs its own.
         output.WriteLine($"{scene.Ladders.Count} ladders");
         Assert.NotEmpty(scene.Ladders);
