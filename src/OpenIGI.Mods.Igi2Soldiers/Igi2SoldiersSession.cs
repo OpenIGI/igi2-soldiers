@@ -75,7 +75,8 @@ internal sealed class Igi2SoldiersSession(SoldierTable table)
 
         _content ??= Igi2GuestContent.Load(igi2, _table.Models, Logger);
         string missionDirectory = Path.Combine(igi1, build.Loaded.Descriptor.MissionDirectory);
-        _content.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, _content.Scripts));
+        Igi2HostMissionDevice scripts = new(missionDirectory, _content.Scripts);
+        _content.Guest.FileSystem.RegisterDevice(scripts);
         Game.World.TerrainData? terrain = build.Loaded.Terrain is { IsUsable: true } usable ? usable : null;
 
         // The models' solids follow Project I.G.I.'s collision of them as they move, and what rides them goes along.
@@ -102,7 +103,14 @@ internal sealed class Igi2SoldiersSession(SoldierTable table)
                 ? mixer.Open(_content.Guest.FileSystem, _content.SoundDefinitions, _content.SoundBanks)
                 : null,
             // The light the level bakes into its buildings, which the soldiers see the player by indoors.
-            Igi1ObjectLight.InMission(scene.Placements, missionDirectory));
+            Igi1ObjectLight.InMission(scene.Placements, missionDirectory),
+            // Each guard's own orders, its patrol among them, written into the script its I.G.I. 2 mind reads.
+            scripts,
+            missionDirectory,
+            // The mission's own guards, whose alarms its soldiers raise and hear.
+            (build.Mission as MissionWorld)?.Soldiers is { } guards ? new Igi1Alarms(guards.IsAlarmOn, guards.ActivateAsGuard) : null,
+            // The mission's doors, which they open on their way as its own guards do.
+            build.Mission.Doors is { } doors ? [.. doors.Doors] : null);
 
         // Project I.G.I.'s rounds and blasts strike them at the table's DamageFromIgi1.
         _level.JoinTo(build.Mission, build.LevelRoot, _table.DamageFromIgi1);
