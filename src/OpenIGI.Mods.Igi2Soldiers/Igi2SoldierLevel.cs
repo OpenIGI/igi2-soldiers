@@ -97,6 +97,13 @@ public static class Igi2SoldierLevel
     /// The mission's alarms, which the soldiers raise and hear as theirs; <see langword="null"/> for soldiers that know no alarm.
     /// </param>
     /// <param name="doors">The mission's doors, which the soldiers open on their way; <see langword="null"/> for none.</param>
+    /// <param name="guest">
+    /// The level the soldiers join, opened already with I.G.I. 2's player standing in it (<see cref="Igi2GuestLevel.AddPlayer"/>),
+    /// which they then look out for in the host's player's stead; <see langword="null"/> to open one of their own.
+    /// </param>
+    /// <param name="interactions">The mission's doors, switches and the rest, which I.G.I. 2's player uses where it stands.</param>
+    /// <param name="activated">What the mission is told of a task I.G.I. 2's player used, by its id.</param>
+    /// <param name="ladders">The mission's ladders, which I.G.I. 2's player climbs.</param>
     /// <returns>The level, begun.</returns>
     public static Igi2HostedLevel Spawn(
         Igi2GuestContent content,
@@ -114,7 +121,11 @@ public static class Igi2SoldierLevel
         Igi2HostMissionDevice? scripts = null,
         string? missionDirectory = null,
         Igi1Alarms? alarms = null,
-        IReadOnlyList<IAiDoor>? doors = null)
+        IReadOnlyList<IAiDoor>? doors = null,
+        Igi2GuestLevel? guest = null,
+        IReadOnlyList<WorldInteraction>? interactions = null,
+        Action<int>? activated = null,
+        IReadOnlyList<LadderPlacement>? ladders = null)
     {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(table);
@@ -124,7 +135,7 @@ public static class Igi2SoldierLevel
         ArgumentNullException.ThrowIfNull(player);
         ArgumentNullException.ThrowIfNull(random);
         IOpenIgiLogger log = logger ?? NullLogger.Instance;
-        Igi2GuestLevel guest = Igi2GuestLevel.Open(content);
+        guest ??= Igi2GuestLevel.Open(content);
 
         // The weapons I.G.I. 2 has, by the ids both games give them: a guard is armed with its own where they are here.
         HashSet<string> igi2Weapons = content.Guest.Session.Services.TryGet(out Igi2HumanWeapons? arms)
@@ -281,8 +292,15 @@ public static class Igi2SoldierLevel
         Igi2HostedLevel hosted = guest.Start(new Igi2GuestLevelStart(world, random, difficulty, player)
         {
             Audio = audio,
-            Colliders = [new Igi1HumanLineCollider(player, Igi2CollisionWorld.HumanGroup, HumanMaterial)],
+            // The host's player is in the soldiers' world unless I.G.I. 2's stands in its stead, its own body there already; and
+            // the guards Project I.G.I. keeps driving, whom I.G.I. 2's player's rounds strike as the mission's own player's would.
+            Colliders = [.. (guest.Player is null ? new HumanTask[] { player } : [])
+                .Concat(guest.Player is null ? [] : level.Descendants().OfType<HumanSoldierTask>().Where(static guard => guard.Driver != GameTitle.Igi2))
+                .Select(static human => new Igi1HumanLineCollider(human, Igi2CollisionWorld.HumanGroup, HumanMaterial))],
             Doors = doors ?? [],
+            Interactions = interactions ?? [],
+            Activated = activated,
+            Ladders = ladders ?? [],
 
             // The guards Project I.G.I. keeps driving are seen as I.G.I. 2's own see one another: a friend, or a friend lying dead.
             Others = [.. level.Descendants().OfType<HumanSoldierTask>().Where(static guard => guard.Driver != GameTitle.Igi2)],
@@ -405,6 +423,25 @@ public static class Igi2SoldierLevel
         }
 
         return squadOf;
+    }
+
+    /// <summary>
+    /// What I.G.I. 2's player carries in a Project I.G.I. mission: the mission's player's own weapons, each by the id I.G.I. 2
+    /// knows it by; with none of them I.G.I. 2's, a knife and a pistol.
+    /// </summary>
+    /// <param name="player">The mission's player.</param>
+    /// <param name="content">The I.G.I. 2 content, whose weapon tables name what I.G.I. 2 has.</param>
+    /// <returns>Its weapon script.</returns>
+    public static string PlayerWeaponScript(HumanTask player, Igi2GuestContent content)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        ArgumentNullException.ThrowIfNull(content);
+        HashSet<string> igi2Weapons = content.Guest.Session.Services.TryGet(out Igi2HumanWeapons? arms)
+            ? [.. arms.Tables.WeaponTypes.Select(static w => w.WeaponId)]
+            : [];
+        string[] own = [.. PlayerLoadout.WeaponsOf(player).Select(static w => w.WeaponId).Where(igi2Weapons.Contains).Distinct()];
+        string[] carried = own.Length > 0 ? own : ["WEAPON_ID_KNIFE", "WEAPON_ID_MAKAROV"];
+        return string.Join(", ", carried.Select(static id => $"{Igi2HumanWeapons.AddWeaponNative}(\"{id}\")"));
     }
 
     // What a guard carries into the fight: its own Project I.G.I. weapons, each by the id I.G.I. 2 knows it by, so a guard

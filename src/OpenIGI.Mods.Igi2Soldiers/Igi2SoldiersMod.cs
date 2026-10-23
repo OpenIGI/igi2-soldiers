@@ -2,6 +2,7 @@ using OpenIGI.Game.Hosting;
 using OpenIGI.Modding;
 using OpenIGI.Modding.Presentation;
 using OpenIGI.Mods.Igi2Soldiers.Mapping;
+using OpenIGI.Presentation;
 
 namespace OpenIGI.Mods.Igi2Soldiers;
 
@@ -30,12 +31,22 @@ public sealed class Igi2SoldiersMod : IOpenIgiMod
     public void Configure(IModBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        Igi2SoldiersSession session = new(SoldierTable.Load(builder.Directory));
+        Igi2SoldiersOptions options = new(
+            builder.Settings.Bool("soldiers", true, "Project I.G.I.'s guards are I.G.I. 2's soldiers, with I.G.I. 2's AI."),
+            builder.Settings.Bool("player", true, "You play as I.G.I. 2's David Jones, moving, fighting and seeing as in I.G.I. 2."),
+            builder.Settings.Bool("pickups", true, "The weapons and ammunition lying about are I.G.I. 2's, for I.G.I. 2's player."));
+        Igi2SoldiersSession session = new(SoldierTable.Load(builder.Directory), options);
 
         builder.LevelSystems<MissionLevelBuild>()
             .InsertBefore(MissionSystemNames.Soldiers, ClaimSystem, session.Claim)
             .InsertAfter(MissionSystemNames.Player, SpawnSystem, session.Spawn);
         builder.OnStarted(session.Start);
-        builder.Presenters(presenters => presenters.ForLevel(session.Presenter));
+
+        // I.G.I. 2's player stands in the missions' stead, drawn with I.G.I. 2's HUD and arms.
+        builder.AddModule(new Igi2PlayerModule(new Igi2PlayerGameplay(session)));
+        builder.Presenters(presenters => presenters
+            .ForLevel(session.Presenter)
+            .Add<HudPresentationRequest, ITitleHudPresenter>(session.Hud)
+            .Add<ViewModelPresentationRequest, ITitleViewModelPresenter>(session.Arms));
     }
 }

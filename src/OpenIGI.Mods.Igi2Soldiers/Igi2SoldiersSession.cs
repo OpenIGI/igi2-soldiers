@@ -21,19 +21,75 @@ namespace OpenIGI.Mods.Igi2Soldiers;
 /// one is played.
 /// </summary>
 /// <param name="table">Which Project I.G.I. soldiers become which.</param>
-internal sealed class Igi2SoldiersSession(SoldierTable table)
+/// <param name="options">What of I.G.I. 2 the missions bring in.</param>
+internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOptions options)
 {
     private const string LogCategory = "Mods";
 
     private readonly SoldierTable _table = table;
+    private readonly Igi2SoldiersOptions _options = options;
     private IModContext? _session;
     private ITitleAudio? _audio;
     private Igi2GuestContent? _content;
     private Igi2HostedLevel? _level;
 
+    // What CreatePlayer made of the mission before its soldiers: the level with I.G.I. 2's player in it, and the collision both
+    // move through.
+    private Prepared? _prepared;
+
     /// <summary>Keeps what the mod reads of a session from then on: its tables, where the games are installed, and its log.</summary>
     /// <param name="session">The session.</param>
     public void Start(IModContext session) => _session = session;
+
+    /// <summary>I.G.I. 2's HUD over I.G.I. 2's player, while it stands.</summary>
+    /// <param name="request">What the HUD draws with.</param>
+    /// <returns>The HUD, or <see langword="null"/> while Project I.G.I.'s own player stands.</returns>
+    public ITitleHudPresenter? Hud(in HudPresentationRequest request) =>
+        _content is { } content && _prepared is not null
+            ? new Igi2GuestHud(new Presentation.Igi2.Hud.Igi2HudRenderer(request.Device, request.Logger), content)
+            : null;
+
+    /// <summary>I.G.I. 2's player's arms and its body in the world, while it stands.</summary>
+    /// <param name="request">What they draw with.</param>
+    /// <returns>The arms, or <see langword="null"/> while Project I.G.I.'s own player stands.</returns>
+    public ITitleViewModelPresenter? Arms(in ViewModelPresentationRequest request) =>
+        _content is { } content && _prepared is not null
+            ? new Igi2GuestArms(new Presentation.Igi2.ViewModel.Igi2ViewModelRenderer(request.Device, content.Guest.Resources, request.Logger, request.Work), content)
+            : null;
+
+    /// <summary>
+    /// Stands I.G.I. 2's player where the mission stands its own, as the session's gameplay (<see cref="Igi2PlayerGameplay"/>):
+    /// David Jones, carrying the Project I.G.I. player's weapons where I.G.I. 2 has them, in the collision the mission's I.G.I. 2
+    /// soldiers will move through.
+    /// </summary>
+    /// <param name="request">The mission, as the host stands its player.</param>
+    /// <returns>The player; <see langword="null"/> to leave the mission's own, with the setting off or I.G.I. 2 not installed.</returns>
+    public ITitlePlayer? CreatePlayer(in TitlePlayerRequest request)
+    {
+        _prepared = null;
+        if (!_options.Player.Value || DataRoot(GameTitle.Igi2) is not { } igi2 || DataRoot(GameTitle.Igi1) is null
+            || request.World.LevelRoot is not { } root || request.World.Mission is not { } mission
+            || PlayerSpawn.FindGameplayTask(root) is not { } task || !PlayerSpawn.TryFindGameplay(root, out PlayerSpawnPoint spawn))
+        {
+            return null;
+        }
+
+        _content ??= Igi2GuestContent.Load(igi2, Models, Logger);
+        Game.World.TerrainData? terrain = mission.Terrain is { IsUsable: true } usable ? usable : null;
+        Dictionary<Game.World.WorldPlacement, Igi2RigidObject> solids = [];
+        Igi2CollisionWorld world = Igi1CollisionWorld.Build(
+            request.Built.Scene.Placements, terrain, static material => material, (object?)terrain ?? request.Built.Scene, solids);
+        Igi2GuestLevel guest = Igi2GuestLevel.Open(_content);
+        string weapons = Igi2SoldierLevel.PlayerWeaponScript(task, _content);
+        Game.Igi2.Player.Igi2TitlePlayer player = guest.AddPlayer(world, new Igi2GuestPlayerStart(spawn.Position, spawn.Gamma, request.Difficulty)
+        {
+            WeaponScript = weapons,
+            Audio = Audio,
+        });
+        _prepared = new Prepared(root, guest, world, solids);
+        Logger.Information(LogCategory, $"I.G.I. 2's player stands in the mission's stead, carrying {weapons}.");
+        return player;
+    }
 
     /// <summary>Draws the mission's soldiers, one presenter for the level that skins every body in one batch.</summary>
     /// <param name="request">What the presenter draws with.</param>
@@ -49,6 +105,12 @@ internal sealed class Igi2SoldiersSession(SoldierTable table)
     {
         _level?.Leave();
         _level = null;
+        _prepared = null;
+        if (!_options.Soldiers.Value)
+        {
+            return;
+        }
+
         if (DataRoot(GameTitle.Igi2) is null)
         {
             Logger.Warning(LogCategory, "I.G.I. 2 is not installed: the mission's soldiers stay Project I.G.I.'s.");
@@ -73,20 +135,44 @@ internal sealed class Igi2SoldiersSession(SoldierTable table)
             return;
         }
 
-        _content ??= Igi2GuestContent.Load(igi2, _table.Models, Logger);
+        // Without I.G.I. 2's player and with the soldiers switched off, the mission is the game's own.
+        Prepared? prepared = _prepared is { } made && ReferenceEquals(made.Root, build.LevelRoot) ? made : null;
+        if (prepared is null && !_options.Soldiers.Value)
+        {
+            return;
+        }
+
+        _content ??= Igi2GuestContent.Load(igi2, Models, Logger);
         string missionDirectory = Path.Combine(igi1, build.Loaded.Descriptor.MissionDirectory);
         Igi2HostMissionDevice scripts = new(missionDirectory, _content.Scripts);
         _content.Guest.FileSystem.RegisterDevice(scripts);
         Game.World.TerrainData? terrain = build.Loaded.Terrain is { IsUsable: true } usable ? usable : null;
 
         // The models' solids follow Project I.G.I.'s collision of them as they move, and what rides them goes along.
-        Dictionary<Game.World.WorldPlacement, Igi2RigidObject> solids = [];
-        Igi2CollisionWorld world =
-            Igi1CollisionWorld.Build(scene.Placements, terrain, static material => material, (object?)terrain ?? scene, solids);
+        Dictionary<Game.World.WorldPlacement, Igi2RigidObject> solids = prepared?.Solids ?? [];
+        Igi2CollisionWorld world = prepared?.World
+            ?? Igi1CollisionWorld.Build(scene.Placements, terrain, static material => material, (object?)terrain ?? scene, solids);
         Game.World.ObjectCollisionIndex? moving = build.Solids;
         Igi2PlacedCarriers carriers = new(
             solids,
             moving is null ? null : placement => (moving.TryGetPose(placement, out Vector3d at, out Matrix3f turn), at, turn));
+        // The weapons lying about are I.G.I. 2's for I.G.I. 2's player to take, each where the mission's lay, which is taken out.
+        if (prepared is not null && _options.Pickups.Value && build.Mission.GunPickups is { } lying)
+        {
+            int laid = 0;
+            foreach (Game.World.GunPickup pickup in lying.Items.Where(static p => !p.IsCollected).ToArray())
+            {
+                Vector3f angles = pickup.Task is { } placed && placed.TryGetValue("Orientation", out object? raw) && raw is Vector3f given ? given : default;
+                if (prepared.Guest.AddGunPickup(pickup.Weapon.ScriptId, pickup.Position, angles))
+                {
+                    lying.Withdraw(pickup);
+                    laid++;
+                }
+            }
+
+            Logger.Information(LogCategory, $"{laid} of the mission's weapons lie as I.G.I. 2's.");
+        }
+
         _level = Igi2SoldierLevel.Spawn(
             _content,
             _table,
@@ -99,9 +185,7 @@ internal sealed class Igi2SoldiersSession(SoldierTable table)
             Logger,
             carriers,
             // Their sounds are I.G.I. 2's, heard through the game's own device beside its sounds.
-            _audio ??= _session is not null && _session.Services.TryGet(out ITitleAudioMixer? mixer)
-                ? mixer.Open(_content.Guest.FileSystem, _content.SoundDefinitions, _content.SoundBanks)
-                : null,
+            Audio,
             // The light the level bakes into its buildings, which the soldiers see the player by indoors.
             Igi1ObjectLight.InMission(scene.Placements, missionDirectory),
             // Each guard's own orders, its patrol among them, written into the script its I.G.I. 2 mind reads.
@@ -110,14 +194,73 @@ internal sealed class Igi2SoldiersSession(SoldierTable table)
             // The mission's own guards, whose alarms its soldiers raise and hear.
             (build.Mission as MissionWorld)?.Soldiers is { } guards ? new Igi1Alarms(guards.IsAlarmOn, guards.ActivateAsGuard) : null,
             // The mission's doors, which they open on their way as its own guards do.
-            build.Mission.Doors is { } doors ? [.. doors.Doors] : null);
+            build.Mission.Doors is { } doors ? [.. doors.Doors] : null,
+            // The level I.G.I. 2's player stands in, when it stands in the mission's stead.
+            prepared?.Guest,
+            // The doors and switches it uses, telling the mission's alarms and scripts as the mission's own player does.
+            build.Mission.Interactions is { } interactions ? [.. interactions.Items] : null,
+            id => (build.Mission as MissionWorld)?.Soldiers?.ActivateTask(id),
+            // The ladders it climbs.
+            scene.Ladders);
+
+        // The mission's player is I.G.I. 2's from here: its scripts, objectives and guards find it where I.G.I. 2's body is, and
+        // the mission's rounds and blasts strike that body.
+        if (_level.Player is { } own)
+        {
+            Game.Igi2.Player.Igi2PlayerInHost body = new(own.Human);
+            player.Body = body;
+            player.Events = body;
+        }
+
+        // The ammunition and the items the mission lays about, which I.G.I. 2's pickups do not hold: I.G.I. 2's player takes
+        // them as the mission's own would on reaching them, the ammunition into its I.G.I. 2 pouches.
+        if (_level.Player is { } taker && _options.Pickups.Value && build.Mission.GenericPickups is { } generic)
+        {
+            Game.World.MissionState mission = build.Mission;
+            _level.EachTick(() => TakeGenericPickups(taker, generic, mission));
+        }
 
         // Project I.G.I.'s rounds and blasts strike them at the table's DamageFromIgi1.
         _level.JoinTo(build.Mission, build.LevelRoot, _table.DamageFromIgi1);
         _level.BindTo(build.Walker);
     }
 
+    // What I.G.I. 2's player reaches this tick of what the mission lays about, from the middle of its body as the mission's own
+    // player's origin reaches; the ammunition is added by its id, which both games share.
+    private void TakeGenericPickups(Game.Igi2.Player.Igi2TitlePlayer taker, Game.World.GenericPickupRegistry generic, Game.World.MissionState mission)
+    {
+        Game.Igi2.Player.Igi2HumanPlayer jones = taker.Human;
+        if (jones.IsDead)
+        {
+            return;
+        }
+
+        Vector3d origin = new(jones.Position.X, jones.Position.Y, (jones.Position.Z + jones.OriginalViewPosition.Z) * 0.5);
+        foreach (Game.World.GenericPickup pickup in generic.CollectAt(origin))
+        {
+            if (mission.AmmoTypes is { } ammoTypes && Game.World.AmmoPickupCatalog.TryResolve(pickup, ammoTypes, out Game.Weapons.AmmoType ammo))
+            {
+                int rounds = Game.World.AmmoPickupCatalog.Amount(pickup, ammo.AmmoId);
+                taker.Inventory?.AddAmmo(ammo.ScriptId, rounds);
+                Logger.Information(LogCategory, $"I.G.I. 2's player picks up {rounds} of {ammo.ScriptId}.");
+            }
+        }
+    }
+
+    // Every model the content may dress a soldier or the player in.
+    private IEnumerable<string> Models =>
+        _table.Models.Append(Igi2GuestPlayerStart.JonesModel).Append(Game.Igi2.Player.Igi2Gameplay.FirstPersonFallbackModel);
+
+    // I.G.I. 2's sounds, heard through the game's own device beside its sounds.
+    private ITitleAudio? Audio => _audio ??= _content is { } content && _session is not null && _session.Services.TryGet(out ITitleAudioMixer? mixer)
+        ? mixer.Open(content.Guest.FileSystem, content.SoundDefinitions, content.SoundBanks)
+        : null;
+
     private IOpenIgiLogger Logger => _session?.Logger ?? NullLogger.Instance;
 
     private string? DataRoot(GameTitle title) => _session is not null && _session.TryGetDataRoot(title, out string? root) ? root : null;
+
+    // A mission CreatePlayer made ready: its level, the guest level its player stands in, and the collision they move through.
+    private sealed record Prepared(
+        Engine.Tasks.GameTask Root, Igi2GuestLevel Guest, Igi2CollisionWorld World, Dictionary<Game.World.WorldPlacement, Igi2RigidObject> Solids);
 }
