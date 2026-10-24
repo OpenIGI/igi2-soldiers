@@ -152,6 +152,12 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
         Dictionary<Game.World.WorldPlacement, Igi2RigidObject> solids = prepared?.Solids ?? [];
         Igi2CollisionWorld world = prepared?.World
             ?? Igi1CollisionWorld.Build(scene.Placements, terrain, static material => material, (object?)terrain ?? scene, solids);
+        // What their rounds strike of the mission's own breaks as the mission's own player's rounds break it.
+        if (prepared is not null)
+        {
+            Igi1RoundContacts.Attach(solids, build.Mission);
+        }
+
         Game.World.ObjectCollisionIndex? moving = build.Solids;
         Igi2PlacedCarriers carriers = new(
             solids,
