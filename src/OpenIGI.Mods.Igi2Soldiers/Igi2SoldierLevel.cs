@@ -218,7 +218,8 @@ public static class Igi2SoldierLevel
 
         // Squads, as I.G.I. 2's levels have them: guards standing together (Squads). Project I.G.I. authored no squads.
         Dictionary<HumanSoldierTask, int> squadOf = Squads(level.Descendants().OfType<HumanSoldierTask>()
-            .Where(guard => guard.Parent is not GuardGeneratorTask && table.For(AiTypeOf(MindOf(guard))) is not null));
+            .Where(guard => guard.Parent is not GuardGeneratorTask && table.For(AiTypeOf(MindOf(guard))) is not null
+                && !string.Equals(AiTypeOf(MindOf(guard)), Igi2SniperPosts.SniperType, StringComparison.Ordinal)));
         Dictionary<int, Igi2AiSquadTask> squads = [];
         Igi2AiSquadTask SquadFor(HumanSoldierTask igi1)
         {
@@ -248,11 +249,22 @@ public static class Igi2SoldierLevel
             int count = igi1.Parent is GuardGeneratorTask generator ? Math.Max(1, generator.MaxSpawns) : 1;
             for (int life = 0; life < count; life++)
             {
-                // A generator's lives stand in the world one at a time: each is a squad of its own.
-                Igi2AiSquadTask squad = igi1.Parent is GuardGeneratorTask ? guest.AddSquad() : SquadFor(igi1);
+                // A generator's lives stand in the world one at a time: each is a squad of its own. A sniper stands alone in a
+                // defensive squad, tuned as I.G.I. 2's own snipers are.
+                bool sniper = string.Equals(AiTypeOf(mind), Igi2SniperPosts.SniperType, StringComparison.Ordinal);
+                Igi2AiSquadTask squad = igi1.Parent is GuardGeneratorTask || sniper ? guest.AddSquad() : SquadFor(igi1);
+                if (sniper)
+                {
+                    squad.SquadType = Igi2SniperPosts.DefensiveSquad;
+                }
+
                 if (scripts is not null && life == 0)
                 {
                     orders = OrdersFor(mind, squad);
+                    if (sniper)
+                    {
+                        orders = orders with { Tunings = Igi2SniperPosts.Tunings };
+                    }
                 }
 
                 Igi2HumanSoldierTask soldier = guest.AddSoldier(squad, life == 0 ? igi1.Id : -1);
@@ -320,14 +332,22 @@ public static class Igi2SoldierLevel
             hosted.StandFor(igi1, squad, soldier);
         }
 
-        // Project I.G.I.'s snipers keep a sniper's sight, and look out from their posts rather than into the towers they stand on.
+        // Project I.G.I.'s snipers keep a sniper's sight, look out from their posts rather than into the towers they stand on, and
+        // look past the railings they lean on.
+        List<Game.Igi2.Soldiers.Igi2HumanSoldier> snipers = [];
         foreach ((HumanTask igi1, _, Igi2HumanSoldierTask soldier) in handedOver)
         {
             if (string.Equals(AiTypeOf(MindOf(igi1)), Igi2SniperPosts.SniperType, StringComparison.Ordinal) && soldier.Body is { } sniper)
             {
                 float gamma = Igi2SniperPosts.Post(sniper, world);
+                snipers.Add(sniper);
                 log.Information("Mods", $"{igi1.Name}, a sniper, watches from his post turned to {gamma * 180f / MathF.PI:F0} degrees.");
             }
+        }
+
+        if (snipers.Count > 0)
+        {
+            hosted.EachTick(Igi2SniperPosts.LookPastPosts(snipers));
         }
 
         // A generator's later lives wait out of the world; the generator's update spawns them.
