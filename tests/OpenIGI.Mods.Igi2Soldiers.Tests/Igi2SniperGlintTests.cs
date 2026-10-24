@@ -70,12 +70,27 @@ public sealed class Igi2SniperGlintTests(ITestOutputHelper output)
         jones.CollisionWorld.LineOfSight(ahead, uint.MaxValue);
         Assert.False(ahead.IsBlocked, "He still looks into something.");
 
-        // Level with him sixty metres out along his view: the glass shows him, full.
-        jones.Human.PopPosition(new Vector3d(sniper.Position.X + (fx / flat * 245760.0), sniper.Position.Y + (fy / flat * 245760.0), sniper.Position.Z));
+        // Level with him sixty metres out along his view. Until he has made Jones out, his scope shows nothing; once he has, and
+        // aims at him, the glass shows him, full, on the rifle in his hands rather than at his eye.
+        Vector3d spot = new(sniper.Position.X + (fx / flat * 245760.0), sniper.Position.Y + (fy / flat * 245760.0), sniper.Position.Z);
+        jones.Human.PopPosition(spot);
+        jones.Tick(new TitlePlayerInput(0f, 0f, default, default, 1f, false));
+        Assert.Empty(jones.ScopeGlints());
+        for (int tick = 0; tick < 300 && !mind.Detection.Enemies.Any(e => ReferenceEquals(e.Target, jones.Human) && e.HasBeenFullVisible); tick++)
+        {
+            jones.Human.PopPosition(spot);
+            jones.Tick(new TitlePlayerInput(0f, 0f, default, default, 1f, false));
+            soldiers.Tick();
+        }
+
+        jones.Human.PopPosition(spot);
         jones.Tick(new TitlePlayerInput(0f, 0f, default, default, 1f, false));
         (Vector3d Position, float Strength) glint = Assert.Single(jones.ScopeGlints());
-        output.WriteLine($"glint at {glint.Position}, strength {glint.Strength}");
+        Vector3d sniperEye = mind.DetectionView.Position;
+        double fromEye = Math.Sqrt(Math.Pow(glint.Position.X - sniperEye.X, 2) + Math.Pow(glint.Position.Y - sniperEye.Y, 2) + Math.Pow(glint.Position.Z - sniperEye.Z, 2)) / 4096.0;
+        output.WriteLine($"glint at {glint.Position}, strength {glint.Strength}, {fromEye:F2} m from his eye");
         Assert.True(glint.Strength > 0.9f);
+        Assert.InRange(fromEye, 0.05, 1.0);
 
         // Forty degrees off his aim, nothing.
         double side = 0.7;
