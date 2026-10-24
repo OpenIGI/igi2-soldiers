@@ -54,6 +54,9 @@ internal sealed class Igi2GuestArms(Igi2ViewModelRenderer arms, Igi2GuestContent
         arms.DrawWorldSprites(sprites, camera, projection);
 
     /// <inheritdoc/>
+    public void DrawWorldMuzzleFlashes(in Camera3D camera, in Matrix4f projection) => arms.DrawWorldMuzzleFlashes(camera, projection);
+
+    /// <inheritdoc/>
     public void DrawGroundDecals(IReadOnlyList<TitleGroundDecal> decals, in Camera3D camera, in Matrix4f projection) =>
         arms.DrawGroundDecals(decals, camera, projection);
 
