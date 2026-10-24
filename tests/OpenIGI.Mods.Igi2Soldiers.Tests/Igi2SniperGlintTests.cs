@@ -170,15 +170,22 @@ public sealed class Igi2SniperGlintTests(ITestOutputHelper output)
     [RequiresTitleDataFact("igi2")]
     public void The_tower_sniper_shoots_at_jones_once_he_sees_him()
     {
-        // Fifty and seventy metres out on the ground in front of his post, standing still: he sees Jones and fires.
+        // Fifty and seventy metres out on the ground in front of his post, standing still: he sees Jones and fires, and Jones
+        // bleeds where he is hit -- the mist and the drops, in the particle engine the level's presenter draws.
         foreach (double metres in new[] { 50.0, 70.0 })
         {
             Assert.True(ShootsAt(metres) > 0, $"The tower sniper never fired at Jones {metres} metres in front of him.");
         }
+
+        Assert.True(_bled, "Jones was hit and threw no blood.");
     }
+
+    private bool _bled;
+    private bool _sprayed;
 
     private int ShootsAt(double metres)
     {
+        _sprayed = false;
         string igi1 = GameData.RequireRoot();
         (LevelTask level, WorldScene scene, TerrainData terrain, string missionDirectory) = Igi2SoldierLevelTests.LoadMission(igi1, 1);
         Igi2GuestContent kit = Igi2GuestContent.Load(
@@ -221,9 +228,12 @@ public sealed class Igi2SniperGlintTests(ITestOutputHelper output)
             }
 
             fired = Math.Max(fired, inventory.TotalBulletsFired);
+            _sprayed |= soldiers.Particles is { } particles
+                && particles.Systems.Any(static system => system.Look.Sprite is Game.Igi2.Humans.Igi2Human.BloodMistSprite or Game.Igi2.Humans.Igi2Human.BloodDropSprite && system.Count > 0);
         }
 
         bool sawHim = mind.Detection.Enemies.Any(e => ReferenceEquals(e.Target, jones.Human));
+        _bled |= _sprayed;
         output.WriteLine($"{metres} m: fired {fired}, Jones's damage {health} -> {jones.Human.Damage.Damage}, still in his list {sawHim}");
         soldiers.Leave();
         return fired;
