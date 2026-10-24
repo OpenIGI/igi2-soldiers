@@ -85,4 +85,68 @@ public sealed class Igi2SniperGlintTests(ITestOutputHelper output)
         jones.Tick(new TitlePlayerInput(0f, 0f, default, default, 1f, false));
         Assert.Empty(jones.ScopeGlints());
     }
+
+    [RequiresTitleDataFact("igi2")]
+    public void The_tower_sniper_sees_jones_on_the_ground_in_front_of_his_post()
+    {
+        string igi1 = GameData.RequireRoot();
+        (LevelTask level, WorldScene scene, TerrainData terrain, string missionDirectory) = Igi2SoldierLevelTests.LoadMission(igi1, 1);
+        Igi2GuestContent kit = Igi2GuestContent.Load(
+            GameDataSource.Igi2.RequireRoot(),
+            SoldierTable.Shipped.Models.Append(Igi2GuestPlayerStart.JonesModel).Append(Igi2Gameplay.FirstPersonFallbackModel));
+        kit.Guest.FileSystem.RegisterDevice(new Igi2HostMissionDevice(missionDirectory, kit.Scripts));
+        HumanPlayerTask task = PlayerSpawn.FindGameplayTask(level)!;
+        Assert.True(PlayerSpawn.TryFindGameplay(level, out PlayerSpawnPoint spawn));
+        Igi2CollisionWorld world = Igi1CollisionWorld.Build(scene.Placements, terrain, static m => m, new object());
+
+        foreach (double metres in new[] { 40.0, 60.0 })
+        {
+            Igi2GuestLevel guest = Igi2GuestLevel.Open(kit);
+            Igi2TitlePlayer jones = guest.AddPlayer(world, new Igi2GuestPlayerStart(spawn.Position, spawn.Gamma, AiDifficulty.Normal) { WeaponScript = Igi2SoldierLevel.PlayerWeaponScript(task, kit) });
+            Igi2HostedLevel soldiers = Igi2SoldierLevel.Spawn(
+                kit, SoldierTable.Shipped, level, NavGraphs.Read(Path.Combine(missionDirectory, "graphs"), level, NullLogger.Instance),
+                world, task, AiDifficulty.Normal, new IgiRandom(), NullLogger.Instance, guest: guest);
+            Igi2HumanSoldier sniper = soldiers.HandedOver.Values.First(static s => Game.Weapons.ScopedWeapons.IsScoped(s.Weapon.Inventory?.Current?.WeaponType.WeaponId));
+            for (int tick = 0; tick < 30; tick++)
+            {
+                soldiers.Tick();
+            }
+
+            Igi2HumanAi mind = (Igi2HumanAi)sniper.Mind!;
+            float[] m = mind.DetectionView.Orientation;
+            double fx = m[1], fy = m[4];
+            double flat = Math.Max(1e-6, Math.Sqrt((fx * fx) + (fy * fy)));
+            jones.Human.PopPosition(new Vector3d(sniper.Position.X + (fx / flat * metres * 4096.0), sniper.Position.Y + (fy / flat * metres * 4096.0), spawn.Position.Z + 8192.0));
+            bool seen = false, inList = false;
+            int tickSeen = -1;
+            for (int tick = 0; tick < 450 && !seen; tick++)
+            {
+                jones.Tick(new TitlePlayerInput(0f, 0f, default, default, 1f, false));
+                soldiers.Tick();
+                foreach (var item in mind.Detection.Enemies)
+                {
+                    if (ReferenceEquals(item.Target, jones.Human))
+                    {
+                        inList = true;
+                        if (item.IsFullVisible)
+                        {
+                            seen = true;
+                            tickSeen = tick;
+                        }
+                    }
+                }
+            }
+
+            Vector3d eye = mind.DetectionView.Position;
+            Game.Physics.WorldLineOfSight line = new(eye, jones.EyePosition, mind.Detection.World.Materials) { Includes = owner => !ReferenceEquals(owner, sniper) && !ReferenceEquals(owner, jones.Human) };
+            jones.CollisionWorld.LineOfSight(line, uint.MaxValue);
+            double drop = Math.Atan2(eye.Z - jones.EyePosition.Z, metres * 4096.0) * 180.0 / Math.PI;
+            output.WriteLine($"{metres} m: seen {seen} (tick {tickSeen}), in his list {inList}, cone length {mind.View.ConeLength / 4096.0:F0} m alpha {mind.View.ConeAlpha * 180 / Math.PI:F0} deg gamma {mind.View.ConeGamma * 180 / Math.PI:F0} deg, tweak {mind.Tweaks[Igi2AiTweakIndex.IdleViewCone1Length] / 4096.0:F0} m, Jones {drop:F0} deg below his eye, line blocked {line.IsBlocked}");
+            soldiers.Leave();
+            if (!line.IsBlocked)
+            {
+                Assert.True(seen, $"The tower sniper never saw Jones standing {metres} metres in front of his post.");
+            }
+        }
+    }
 }

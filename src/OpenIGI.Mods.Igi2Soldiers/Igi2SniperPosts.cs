@@ -13,7 +13,7 @@ namespace OpenIGI.Mods.Igi2Soldiers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Project I.G.I. gives its sniper type a hundred metres of sight in a narrow cone, against forty for a guard; I.G.I. 2 has
+/// Project I.G.I. gives its sniper type a hundred metres of sight, thirty degrees up and down, against forty for a guard; I.G.I. 2 has
 /// no sniper type, and the ordinary soldier the table maps one to sees as far as any other. The sight is set where I.G.I. 2
 /// keeps it, the soldier's idle, investigating and combat cones (the tuning each tick's view is taken from), so it holds.
 /// </para>
@@ -30,8 +30,16 @@ public static class Igi2SniperPosts
     /// <summary>Project I.G.I.'s sniper type, as a guard's AI names it.</summary>
     public const string SniperType = "AITYPE_SNIPER";
 
-    /// <summary>How far a sniper sees, in world units: Project I.G.I.'s hundred metres.</summary>
-    public const float SightUnits = 100f * 4096f;
+    /// <summary>
+    /// How far a sniper sees, in world units: a hundred and sixty metres. I.G.I. 2 shortens a soldier's sight by how plain the
+    /// player stands (a still player in mission one's daylight is about half as visible), and Project I.G.I.'s hundred metres,
+    /// so shortened, left its tower sniper blind past fifty; at a hundred and sixty he sees a still player at seventy-odd, and
+    /// one who moves further, as a sniper should.
+    /// </summary>
+    public const float SightUnits = 160f * 4096f;
+
+    /// <summary>How far a sniper's sight opens up and down from his view, in radians: Project I.G.I.'s thirty degrees.</summary>
+    public const float SightHalfAngle = 0.5235988f;
 
     /// <summary>How far a line round a post is cast to judge the view that way, in world units: eighty metres.</summary>
     public const double JudgedReach = 80.0 * 4096.0;
@@ -52,6 +60,14 @@ public static class Igi2SniperPosts
             foreach (int length in (int[])[Igi2AiTweakIndex.IdleViewCone1Length, Igi2AiTweakIndex.InvestigateViewCone1Length, Igi2AiTweakIndex.CombatViewCone1Length])
             {
                 ai.Tweaks[length] = Math.Max(ai.Tweaks[length], SightUnits);
+            }
+
+            // And Project I.G.I.'s thirty degrees up and down: a sniper looking level from a tower sees the ground below him,
+            // which a soldier's fifteen leave out to seventy metres from an eighteen-metre tower. I.G.I. 2 turns one angle into
+            // both halves of the cone, so the sides open as far.
+            foreach (int angle in (int[])[Igi2AiTweakIndex.IdleViewCone1Alpha, Igi2AiTweakIndex.InvestigateViewCone1Alpha, Igi2AiTweakIndex.CombatViewCone1Alpha])
+            {
+                ai.Tweaks[angle] = Math.Max(ai.Tweaks[angle], SightHalfAngle);
             }
         }
 
