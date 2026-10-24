@@ -24,7 +24,7 @@ namespace OpenIGI.Mods.Igi2Soldiers.Tests;
 public sealed class Igi2SniperGlintTests(ITestOutputHelper output)
 {
     [RequiresTitleDataFact("igi2")]
-    public void The_tower_sniper_glints_at_jones_standing_where_he_looks()
+    public void The_tower_sniper_looks_out_from_his_post_and_glints_at_jones_where_he_looks()
     {
         string igi1 = GameData.RequireRoot();
         (LevelTask level, WorldScene scene, TerrainData terrain, string missionDirectory) = Igi2SoldierLevelTests.LoadMission(igi1, 1);
@@ -45,24 +45,29 @@ public sealed class Igi2SniperGlintTests(ITestOutputHelper output)
         output.WriteLine($"{snipers.Length} scoped of {soldiers.HandedOver.Count}: {string.Join(", ", snipers.Select(static s => $"{s.Weapon.Inventory?.Current?.WeaponType.WeaponId} at {s.Position}"))}");
         Assert.NotEmpty(snipers);
         Igi2HumanSoldier sniper = snipers[0];
-        // His post faces into the tower's own frame (the level's gamma for him is nought, as Project I.G.I.'s own sniper's is),
-        // so he is turned about to look out over the compound, where nothing stands between him and Jones.
+        output.WriteLine($"spawned facing gamma {sniper.Gamma}, body task {(soldiers.HandedOver.First(p => ReferenceEquals(p.Value, sniper)).Key.Name)}");
+        // His post faces into the tower's own frame (the level's gamma for him is nought), so the mod turns him to look out
+        // from it over open ground, with a sniper's hundred metres of sight.
         for (int tick = 0; tick < 30; tick++)
         {
             soldiers.Tick();
         }
 
-        sniper.PopOrientation(MathF.PI);
-        for (int tick = 0; tick < 2; tick++)
-        {
-            soldiers.Tick();
-        }
+        output.WriteLine($"after 30 ticks gamma {sniper.Gamma}");
+        Assert.True(((Igi2HumanAi)sniper.Mind!).Tweaks[Igi2AiTweakIndex.IdleViewCone1Length] >= Igi2SniperPosts.SightUnits);
 
         Igi2HumanAi mind = (Igi2HumanAi)sniper.Mind!;
         float[] m = mind.DetectionView.Orientation;
         double fx = m[1], fy = m[4];
         double flat = Math.Max(1e-6, Math.Sqrt((fx * fx) + (fy * fy)));
         output.WriteLine($"he looks along ({fx:F2}, {fy:F2}, {m[7]:F2})");
+        Vector3d eye = mind.DetectionView.Position;
+        Game.Physics.WorldLineOfSight ahead = new(eye, new Vector3d(eye.X + (fx / flat * 245760.0), eye.Y + (fy / flat * 245760.0), eye.Z), mind.Detection.World.Materials)
+        {
+            Includes = owner => !ReferenceEquals(owner, sniper),
+        };
+        jones.CollisionWorld.LineOfSight(ahead, uint.MaxValue);
+        Assert.False(ahead.IsBlocked, "He still looks into something.");
 
         // Level with him sixty metres out along his view: the glass shows him, full.
         jones.Human.PopPosition(new Vector3d(sniper.Position.X + (fx / flat * 245760.0), sniper.Position.Y + (fy / flat * 245760.0), sniper.Position.Z));

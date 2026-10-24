@@ -320,6 +320,16 @@ public static class Igi2SoldierLevel
             hosted.StandFor(igi1, squad, soldier);
         }
 
+        // Project I.G.I.'s snipers keep a sniper's sight, and look out from their posts rather than into the towers they stand on.
+        foreach ((HumanTask igi1, _, Igi2HumanSoldierTask soldier) in handedOver)
+        {
+            if (string.Equals(AiTypeOf(MindOf(igi1)), Igi2SniperPosts.SniperType, StringComparison.Ordinal) && soldier.Body is { } sniper)
+            {
+                float gamma = Igi2SniperPosts.Post(sniper, world);
+                log.Information("Mods", $"{igi1.Name}, a sniper, watches from his post turned to {gamma * 180f / MathF.PI:F0} degrees.");
+            }
+        }
+
         // A generator's later lives wait out of the world; the generator's update spawns them.
         foreach ((HumanTask igi1, List<(Igi2AiSquadTask Squad, Igi2HumanSoldierTask Soldier)> made) in lives)
         {
