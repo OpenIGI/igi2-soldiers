@@ -6,11 +6,14 @@
     <RootNamespace>OpenIGI.Mods.Igi2Soldiers</RootNamespace>
     <ModId>igi2soldiers</ModId>
     <ModName>I.G.I. 2 soldiers</ModName>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <ModSummary>Project I.G.I.'s missions guarded by I.G.I. 2's soldiers: their bodies, weapons and AI.</ModSummary>
     <Authors>OpenIGI</Authors>
     <ModTitles>igi1</ModTitles>
     <ModRequiresTitleData>igi2</ModRequiresTitleData>
+    <!-- Not finished: the launcher marks it EXPERIMENTAL. The first game with a mod loader is 0.5.0. -->
+    <ModExperimental>true</ModExperimental>
+    <ModMinGameVersion>0.5.0</ModMinGameVersion>
   </PropertyGroup>
 
   <ItemGroup>
