@@ -147,11 +147,11 @@ public static class Igi2SoldierLevel
         AiPatrolPathRegistry patrols = AiPatrolPathRegistry.Build(level);
         HashSet<int> carried = [];
         HashSet<int> joined = [];
-        Igi2SoldierOrders OrdersFor(HumanAiTask? mind, Igi2AiSquadTask squad)
+        AiGuardOrders OrdersFor(HumanAiTask? mind, Igi2AiSquadTask squad)
         {
-            Igi1GuardOrders own = OrdersOf(mind, missionDirectory);
+            AiGuardOrders own = OrdersOf(mind, missionDirectory);
             JoinAlarm(own, squad);
-            Igi2SoldierOrders orders = Translate(own);
+            AiGuardOrders orders = Translate(own);
             if (!Carry(orders.PatrolPathId))
             {
                 orders = orders with { PatrolPathId = null };
@@ -185,7 +185,7 @@ public static class Igi2SoldierLevel
         // A squad runs for the alarm its first guard with one does; that alarm is carried into the guest's level once, its
         // control following the mission's alarm and its trigger, where it has one, pressing the mission's. A guard that only
         // hears the alarm names no trigger, and its squad sends no one to press one.
-        void JoinAlarm(Igi1GuardOrders own, Igi2AiSquadTask squad)
+        void JoinAlarm(AiGuardOrders own, Igi2AiSquadTask squad)
         {
             if (alarms is null || own.AlarmControlId is not { } control || squad.AlarmControlId != -1)
             {
@@ -245,7 +245,7 @@ public static class Igi2SoldierLevel
                 continue;
             }
 
-            Igi2SoldierOrders? orders = null;
+            AiGuardOrders? orders = null;
             int count = igi1.Parent is GuardGeneratorTask generator ? Math.Max(1, generator.MaxSpawns) : 1;
             for (int life = 0; life < count; life++)
             {
@@ -280,7 +280,7 @@ public static class Igi2SoldierLevel
                 ai.GraphId = mind?.GraphId ?? -1;
                 if (orders is not null && scripts is not null)
                 {
-                    scripts.SoldierScripts[ai.Id] = Igi2SoldierScript.Build(orders);
+                    scripts.SoldierScripts[ai.Id] = AiGuardScript.Build(orders, squads: true);
                 }
 
                 if (life == 0)
@@ -501,30 +501,19 @@ public static class Igi2SoldierLevel
     }
 
     // A guard's orders off its own script, MISSION:AI/<mind id>.qsc, read from its compiled form beside it.
-    private static Igi1GuardOrders OrdersOf(HumanAiTask? mind, string? missionDirectory)
+    private static AiGuardOrders OrdersOf(HumanAiTask? mind, string? missionDirectory)
     {
         if (missionDirectory is null || mind is not { Id: >= 0 })
         {
-            return Igi1GuardOrders.None;
+            return AiGuardOrders.None;
         }
 
         string path = Path.Combine(missionDirectory, "ai", $"{mind.Id}.qvm");
-        return File.Exists(path) ? Igi1GuardScript.Read(QvmProgram.Read(File.ReadAllBytes(path))) : Igi1GuardOrders.None;
+        return File.Exists(path) ? AiGuardScript.Read(QvmProgram.Read(File.ReadAllBytes(path))) : AiGuardOrders.None;
     }
 
     // The orders in I.G.I. 2's terms; the alarm ids are the squad's there, not the soldier's.
-    private static Igi2SoldierOrders Translate(Igi1GuardOrders orders) => new()
-    {
-        PatrolPathId = orders.PatrolPathId,
-        PatrolStart = orders.PatrolStart,
-        AlarmPatrolPathId = orders.AlarmPatrolPathId,
-        AlarmPatrolStart = orders.AlarmPatrolStart,
-        GunnerId = orders.GunnerId,
-        AlarmAccess = orders.AlarmAccess,
-        ViewLength = orders.ViewLength,
-        ViewGamma = orders.ViewGamma,
-        IsInvulnerable = orders.IsInvulnerable,
-    };
+    private static AiGuardOrders Translate(AiGuardOrders orders) => orders with { AlarmControlId = null, AlarmTriggerId = null };
 
     // The soldier's Project I.G.I. mind, whose AI type picks its I.G.I. 2 counterpart and whose graph it walks.
     private static HumanAiTask? MindOf(GameTask soldier) => soldier.Children.OfType<HumanAiTask>().FirstOrDefault();
