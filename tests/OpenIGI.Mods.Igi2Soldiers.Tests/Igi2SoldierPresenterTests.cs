@@ -21,6 +21,7 @@ using OpenIGI.Mods.Igi2Soldiers.Collision;
 using OpenIGI.Mods.Igi2Soldiers.Mapping;
 using OpenIGI.Presentation;
 using OpenIGI.Presentation.Igi2.World;
+using OpenIGI.Rendering.Headless;
 using OpenIGI.TestSupport;
 using Xunit;
 using Xunit.Abstractions;

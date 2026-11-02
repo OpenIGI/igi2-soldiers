@@ -113,7 +113,7 @@ public sealed class Igi2PlayerInIgi1Tests(ITestOutputHelper output)
 
         // The soldiers' player is Jones: their AI looks out for him, their detectors list him, not the mission's task.
         Assert.Same(jones, soldiers.Player);
-        Assert.Same(jones.Human, soldiers.Ai.Player);
+        Assert.Same(jones.Human, soldiers.Ai.Players.Primary);
         Assert.Contains(jones.Human, soldiers.Detection.Detectables);
         Assert.DoesNotContain(task, soldiers.Detection.Detectables);
 
