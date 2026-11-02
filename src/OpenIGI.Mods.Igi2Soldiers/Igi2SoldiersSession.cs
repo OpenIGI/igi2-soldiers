@@ -1,6 +1,11 @@
 using OpenIGI.Core.Diagnostics;
 using OpenIGI.Core.Numerics;
 using OpenIGI.Core.Titles;
+using OpenIGI.Formats.Iff;
+using OpenIGI.Formats.Ilff;
+using OpenIGI.Formats.Sound;
+using OpenIGI.Formats.Textures;
+using OpenIGI.Formats.World;
 using OpenIGI.Game.Ai;
 using OpenIGI.Game.Hosting;
 using OpenIGI.Game.Igi1.World;
@@ -13,6 +18,7 @@ using OpenIGI.Mods.Igi2Soldiers.Collision;
 using OpenIGI.Mods.Igi2Soldiers.Mapping;
 using OpenIGI.Presentation;
 using OpenIGI.Presentation.Igi2.World;
+using OpenIGI.Scripting.Qvm;
 
 namespace OpenIGI.Mods.Igi2Soldiers;
 
@@ -32,6 +38,9 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
     private ITitleAudio? _audio;
     private Igi2GuestContent? _content;
     private Igi2HostedLevel? _level;
+
+    // Set once I.G.I. 2's content has failed to load, so every later mission keeps the game's own soldiers without trying again.
+    private string? _contentFailure;
 
     // What CreatePlayer made of the mission before its soldiers: the level with I.G.I. 2's player in it, and the collision both
     // move through.
@@ -74,13 +83,18 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
             return null;
         }
 
-        _content ??= Igi2GuestContent.Load(igi2, Models, Logger);
+        // Without I.G.I. 2's content there is no Jones to stand, and the mission's own player stands instead.
+        if (Content(igi2) is not { } content)
+        {
+            return null;
+        }
+
         Game.World.TerrainData? terrain = mission.Terrain is { IsUsable: true } usable ? usable : null;
         Dictionary<Game.World.WorldPlacement, Igi2RigidObject> solids = [];
         Igi2CollisionWorld world = Igi1CollisionWorld.Build(
             request.Built.Scene.Placements, terrain, static material => material, (object?)terrain ?? request.Built.Scene, solids);
-        Igi2GuestLevel guest = Igi2GuestLevel.Open(_content);
-        string weapons = Igi2SoldierLevel.PlayerWeaponScript(task, _content);
+        Igi2GuestLevel guest = Igi2GuestLevel.Open(content);
+        string weapons = Igi2SoldierLevel.PlayerWeaponScript(task, content);
         Game.Igi2.Player.Igi2TitlePlayer player = guest.AddPlayer(world, new Igi2GuestPlayerStart(spawn.Position, spawn.Gamma, request.Difficulty)
         {
             WeaponScript = weapons,
@@ -111,9 +125,24 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
             return;
         }
 
-        if (DataRoot(GameTitle.Igi2) is null)
+        // A claimed soldier is given no body and no mind of Project I.G.I.'s, and nothing can hand them back once the game's
+        // soldiers are built. So everything Spawn needs is made sure of here, before any is claimed: a mission whose I.G.I. 2
+        // soldiers cannot stand keeps its own, rather than being left with none.
+        if (DataRoot(GameTitle.Igi2) is not { } igi2)
         {
             Logger.Warning(LogCategory, "I.G.I. 2 is not installed: the mission's soldiers stay Project I.G.I.'s.");
+            return;
+        }
+
+        if (DataRoot(GameTitle.Igi1) is null || build.Scene is null || PlayerSpawn.FindGameplayTask(build.LevelRoot) is null)
+        {
+            Logger.Warning(LogCategory, "The mission has no scene or no player: its soldiers stay Project I.G.I.'s.");
+            return;
+        }
+
+        if (Content(igi2) is null)
+        {
+            Logger.Warning(LogCategory, "I.G.I. 2's content did not load: the mission's soldiers stay Project I.G.I.'s.");
             return;
         }
 
@@ -142,10 +171,15 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
             return;
         }
 
-        _content ??= Igi2GuestContent.Load(igi2, Models, Logger);
+        // Claim loaded it before taking a soldier; without it nothing was claimed, and the mission is the game's own.
+        if (Content(igi2) is not { } content)
+        {
+            return;
+        }
+
         string missionDirectory = Path.Combine(igi1, build.Loaded.Descriptor.MissionDirectory);
-        Igi2HostMissionDevice scripts = new(missionDirectory, _content.Scripts);
-        _content.Guest.FileSystem.RegisterDevice(scripts);
+        Igi2HostMissionDevice scripts = new(missionDirectory, content.Scripts);
+        content.Guest.FileSystem.RegisterDevice(scripts);
         Game.World.TerrainData? terrain = build.Loaded.Terrain is { IsUsable: true } usable ? usable : null;
 
         // The models' solids follow Project I.G.I.'s collision of them as they move, and what rides them goes along.
@@ -191,7 +225,7 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
                 }
 
                 Vector3f angles = mount.Task.TryGetValue("Orientation", out object? raw) && raw is Vector3f given ? given : default;
-                string weapon = Igi2SoldierLevel.HasWeapon(_content, gun.WeaponId) ? gun.WeaponId : "WEAPON_ID_M2HB";
+                string weapon = Igi2SoldierLevel.HasWeapon(content, gun.WeaponId) ? gun.WeaponId : "WEAPON_ID_M2HB";
                 if (prepared.Guest.AddStationaryGun(
                     gun.TaskId, gun.GunPosition, angles, gun.MaximumAlphaDegrees, gun.MinimumAlphaDegrees, gun.MaximumGammaDegrees, weapon) is not null)
                 {
@@ -204,7 +238,7 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
         }
 
         _level = Igi2SoldierLevel.Spawn(
-            _content,
+            content,
             _table,
             build.LevelRoot,
             build.Graphs ?? [],
@@ -291,6 +325,30 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
                 Logger.Information(LogCategory, $"I.G.I. 2's player picks up {rounds} of {ammo.ScriptId}, into {into ?? "nothing it fires"}.");
             }
         }
+    }
+
+    // I.G.I. 2's content, loaded the first time a mission asks for it. An installation it cannot be read from -- files missing,
+    // or a release whose data this build does not read -- is reported once and leaves every mission the game's own.
+    private Igi2GuestContent? Content(string igi2)
+    {
+        if (_content is not null || _contentFailure is not null)
+        {
+            return _content;
+        }
+
+        try
+        {
+            _content = Igi2GuestContent.Load(igi2, Models, Logger);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
+            or InvalidDataException or EngineFatalException or PackFormatException or IlffFormatException or IffFormatException
+            or TextureFormatException or IlsfFormatException or QvmFormatException)
+        {
+            _contentFailure = ex.Message;
+            Logger.Warning(LogCategory, $"I.G.I. 2's content at {igi2} could not be loaded: {ex.Message}");
+        }
+
+        return _content;
     }
 
     // Every model the content may dress a soldier or the player in.
