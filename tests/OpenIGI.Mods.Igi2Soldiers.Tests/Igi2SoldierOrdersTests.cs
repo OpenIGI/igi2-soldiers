@@ -68,7 +68,7 @@ public sealed class Igi2SoldierOrdersTests(ITestOutputHelper output)
         }
 
         // Orders: each guard's own script, read off its Project I.G.I. one, written as I.G.I. 2 writes a soldier's.
-        Dictionary<HumanTask, Igi1GuardOrders> orders = soldiers.HandedOver.Keys.ToDictionary(static task => task, task => OrdersOf(task, missionDirectory));
+        Dictionary<HumanTask, AiGuardOrders> orders = soldiers.HandedOver.Keys.ToDictionary(static task => task, task => OrdersOf(task, missionDirectory));
         int patrolling = orders.Values.Count(static o => o.PatrolPathId is not null);
         output.WriteLine($"{scripts.SoldierScripts.Count} scripts written, {patrolling} patrolling");
         Assert.NotEmpty(scripts.SoldierScripts);
@@ -117,7 +117,7 @@ public sealed class Igi2SoldierOrdersTests(ITestOutputHelper output)
 
         // Alarms: a squad's alarm is the mission's. Mission one's guards only hear theirs, and name no trigger to press: as it
         // sounds, the control tells them, and each with a patrol for the alarm walks that one instead.
-        (HumanTask alarmed, Igi1GuardOrders alarm) = orders.First(static p => p.Value is { AlarmControlId: not null, AlarmPatrolPathId: not null });
+        (HumanTask alarmed, AiGuardOrders alarm) = orders.First(static p => p.Value is { AlarmControlId: not null, AlarmPatrolPathId: not null });
         Igi2AlarmControlTask control = Assert.Single(soldiers.Alarms, a => a.Id == alarm.AlarmControlId);
         Igi2HumanAi listener = (Igi2HumanAi)soldiers.HandedOver[alarmed].Mind!;
         Assert.Equal(alarm.AlarmControlId, listener.Squad!.Task.AlarmControlId);
@@ -154,11 +154,11 @@ public sealed class Igi2SoldierOrdersTests(ITestOutputHelper output)
         Assert.True(soldiers.Pickups.Items.Count > lying, "the dead guard dropped nothing");
     }
 
-    private static Igi1GuardOrders OrdersOf(HumanTask task, string missionDirectory)
+    private static AiGuardOrders OrdersOf(HumanTask task, string missionDirectory)
     {
         HumanAiTask? mind = task.Children.OfType<HumanAiTask>().FirstOrDefault();
         string path = Path.Combine(missionDirectory, "ai", $"{mind?.Id}.qvm");
-        return mind is not null && File.Exists(path) ? Igi1GuardScript.Read(QvmProgram.Read(File.ReadAllBytes(path))) : Igi1GuardOrders.None;
+        return mind is not null && File.Exists(path) ? AiGuardScript.Read(QvmProgram.Read(File.ReadAllBytes(path))) : AiGuardOrders.None;
     }
 
     private static double Distance(Vector3d a, Vector3d b)
