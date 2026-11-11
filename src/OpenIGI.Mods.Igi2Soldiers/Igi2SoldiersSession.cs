@@ -158,6 +158,10 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
             return;
         }
 
+        // The mission is Project I.G.I.'s own: its doors, its pickups and what its player works are that game's, which this
+        // mod hands to I.G.I. 2's guests. In any other game's mission there are none of them to hand over.
+        MissionWorld? played = build.Mission as MissionWorld;
+
         if (build.Scene is not { } scene || PlayerSpawn.FindGameplayTask(build.LevelRoot) is not { } player)
         {
             Logger.Warning(LogCategory, "The mission has no scene or no player: its I.G.I. 2 soldiers are not spawned.");
@@ -197,7 +201,7 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
             solids,
             moving is null ? null : placement => (moving.TryGetPose(placement, out Vector3d at, out Matrix3f turn), at, turn));
         // The weapons lying about are I.G.I. 2's for I.G.I. 2's player to take, each where the mission's lay, which is taken out.
-        if (prepared is not null && _options.Pickups.Value && build.Mission.GunPickups is { } lying)
+        if (prepared is not null && _options.Pickups.Value && played?.GunPickups is { } lying)
         {
             int laid = 0;
             foreach (Game.World.GunPickup pickup in lying.Items.Where(static p => !p.IsCollected).ToArray())
@@ -214,7 +218,7 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
         }
 
         // The mission's mounted guns are I.G.I. 2's for I.G.I. 2's player and soldiers to work, each on the mission's mount.
-        if (prepared is not null && build.Mission.Interactions is { } mounts)
+        if (prepared is not null && played?.Interactions is { } mounts)
         {
             int mounted = 0;
             foreach (Game.World.WorldInteraction mount in mounts.Items)
@@ -256,14 +260,14 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
             scripts,
             missionDirectory,
             // The mission's own guards, whose alarms its soldiers raise and hear.
-            (build.Mission as MissionWorld)?.Soldiers is { } guards ? new Igi1Alarms(guards.IsAlarmOn, guards.ActivateAsGuard) : null,
+            played?.Soldiers is { } guards ? new Igi1Alarms(guards.IsAlarmOn, guards.ActivateAsGuard) : null,
             // The mission's doors, which they open on their way as its own guards do.
-            build.Mission.Doors is { } doors ? [.. doors.Doors] : null,
+            played?.Doors is { } doors ? [.. doors.Doors] : null,
             // The level I.G.I. 2's player stands in, when it stands in the mission's stead.
             prepared?.Guest,
             // The doors and switches it uses, telling the mission's alarms and scripts as the mission's own player does.
-            build.Mission.Interactions is { } interactions ? [.. interactions.Items] : null,
-            id => (build.Mission as MissionWorld)?.Soldiers?.ActivateTask(id),
+            played?.Interactions is { } interactions ? [.. interactions.Items] : null,
+            id => played?.Soldiers?.ActivateTask(id),
             // The ladders it climbs.
             scene.Ladders);
 
@@ -277,7 +281,7 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
         }
 
         // A gun a guard of the mission's drops falls as I.G.I. 2's, for I.G.I. 2's player to take, and the mission's is taken out.
-        if (_level.Player is not null && _options.Pickups.Value && build.Mission.GunPickups is { } dropping)
+        if (_level.Player is not null && _options.Pickups.Value && played?.GunPickups is { } dropping)
         {
             Igi2HostedLevel hosted = _level;
             void Drop(Game.World.GunPickup pickup)
@@ -294,7 +298,7 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
 
         // The ammunition and the items the mission lays about, which I.G.I. 2's pickups do not hold: I.G.I. 2's player takes
         // them as the mission's own would on reaching them, the ammunition into its I.G.I. 2 pouches.
-        if (_level.Player is { } taker && _options.Pickups.Value && build.Mission.GenericPickups is { } generic)
+        if (_level.Player is { } taker && _options.Pickups.Value && played?.GenericPickups is { } generic)
         {
             Game.World.MissionState mission = build.Mission;
             _level.EachTick(() => TakeGenericPickups(taker, generic, mission));
