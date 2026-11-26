@@ -473,7 +473,7 @@ public sealed class Igi2SoldierLevelTests(ITestOutputHelper output)
         {
         }
 
-        public ITitleVoice? Play(string definition, Vector3d positionInUnits, bool? looping = null)
+        public ITitleVoice? Play(string definition, Vector3d? positionInUnits, bool? looping = null)
         {
             Played.Add(definition);
             return null;

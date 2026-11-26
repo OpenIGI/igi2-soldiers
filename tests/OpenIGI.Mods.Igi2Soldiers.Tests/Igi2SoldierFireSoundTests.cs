@@ -80,7 +80,7 @@ public sealed class Igi2SoldierFireSoundTests(ITestOutputHelper output)
         {
         }
 
-        public ITitleVoice? Play(string definition, Vector3d positionInUnits, bool? looping = null)
+        public ITitleVoice? Play(string definition, Vector3d? positionInUnits, bool? looping = null)
         {
             Log.Add((Tick, definition, looping));
             return new Voice(this);

@@ -228,7 +228,7 @@ internal sealed class Igi2SoldiersSession(SoldierTable table, Igi2SoldiersOption
                     continue;
                 }
 
-                Vector3f angles = mount.Task.TryGetValue("Orientation", out object? raw) && raw is Vector3f given ? given : default;
+                Vector3f angles = mount.Task.TryGetScriptValue("Orientation", out Vector3f given) ? given : default;
                 string weapon = Igi2SoldierLevel.HasWeapon(content, gun.WeaponId) ? gun.WeaponId : "WEAPON_ID_M2HB";
                 if (prepared.Guest.AddStationaryGun(
                     gun.TaskId, gun.GunPosition, angles, gun.MaximumAlphaDegrees, gun.MinimumAlphaDegrees, gun.MaximumGammaDegrees, weapon) is not null)

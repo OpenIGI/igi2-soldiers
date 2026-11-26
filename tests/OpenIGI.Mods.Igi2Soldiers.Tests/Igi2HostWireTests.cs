@@ -62,7 +62,7 @@ public sealed class Igi2HostWireTests(ITestOutputHelper output)
             Game.Igi2.Interaction.IIgi2Wire wire = jones.Activatables.OfType<Game.Igi2.Interaction.IIgi2Wire>()
                 .Single(w => ((Game.Igi2.Interaction.Igi2HostInteraction)w).Interaction.Task.Id == id);
             WorldInteraction at = ((Game.Igi2.Interaction.Igi2HostInteraction)wire).Interaction;
-            Assert.True(WireTransform.TryCreate(at.Task, out WireTransform cable));
+            Assert.True(WireTransform.TryCreate(at.Anchor, at.End, null, out WireTransform cable));
             human.PopPosition(at.WireBodyPoint(at.Anchor));
             human.ScriptActivate(wire);
             // Past the clip that reaches up for it, half a second.
